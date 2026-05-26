@@ -39,13 +39,18 @@ The repo currently has a placeholder Astro page and an OpenSpec config; nothing 
 
 ### Data loading: build-time JSON via a single access primitive
 
-**Chosen:** `src/data/companies/*.json` (one file per company), loaded at build time via `import.meta.glob` behind a single typed function the rest of the app imports from. The function is the contract; the source file format is private.
-**Alternatives:** one big `companies.json` array (simpler but discourages per-file diffs and merge-friendliness). Fetch from a URL at build time (premature; we don't have the URL yet). **Why:** keeping the source format private behind an access function means the swap to SQLite later is a one-file change, not a spec change.
+**Chosen:** `src/data/companies.json` containing an array of all company records. Loaded at build time behind a single typed function the rest of the app imports from. The function is the contract; the source file format is private.
+**Alternatives:** `src/data/companies/*.json` (one file per company, discarded to align with pipeline exports). **Why:** the pipeline emits a single JSON array, so parsing one file is more performant and directly matches production data delivery.
 
-### Null-score handling in v1
+### User Geolocation and Distance Calculation
 
-**Chosen:** null-score companies render as pins (using the faintest style from the design system) and have null cells in the pentagon. No filtering, no special UI affordance beyond visual de-emphasis.
-**Alternatives:** hide null-score companies (loses information). Special "no data" badge (adds UI surface we don't have a design for yet). **Why:** the n/a UX is a filter-screen concern; for the map-only v1, "render and de-emphasize" is honest and minimal.
+**Chosen:** Browser `navigator.geolocation` accessed via a map overlay button. If granted, we center the map, render a custom location marker, and calculate the distance in kilometers from the user to the selected company in the `<PeekCard>` using the Haversine formula.
+**Alternatives:** Automated geolocation on mount (discarded to avoid intrusive permission popups on initial load). **Why:** user-initiated geolocation is polite, privacy-respecting, and ensures map initialization is never blocked by location queries.
+
+### Null-coordinate and Null-score handling in v1
+
+**Chosen:** Companies with missing or null `latlng` are ignored and omitted from the map. Null-score companies (where scores exist but numeric values are null) render as uniform pins and have null cells in the pentagon.
+**Alternatives:** Displaying companies with null coordinates in a sidebar list (discarded; map-overview is map-first). **Why:** keeping rendering bound to valid coordinates simplifies the interface.
 
 ## Risks / Trade-offs
 

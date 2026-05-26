@@ -1,0 +1,53 @@
+---
+import type { Company } from "../lib/company-data/types";
+import { t } from "../lib/i18n";
+import MapView from "./MapView";
+import PeekCard from "./PeekCard";
+import LanguageSwitcher from "./LanguageSwitcher";
+
+interface Props {
+  companies: Company[];
+  locale: "nl" | "en";
+}
+
+const { companies, locale } = Astro.props;
+
+// Fail the build if MAPBOX_PUBLIC_TOKEN is missing
+const mapboxToken = import.meta.env.MAPBOX_PUBLIC_TOKEN || process.env.MAPBOX_PUBLIC_TOKEN;
+if (!mapboxToken) {
+  throw new Error("MAPBOX_PUBLIC_TOKEN is required to build the application.");
+}
+---
+
+<div class="relative w-screen h-screen overflow-hidden bg-paper-warm flex flex-col">
+  <!-- Map Widget -->
+  <div class="absolute inset-0 z-0">
+    <MapView client:only="react" companies={companies} mapboxToken={mapboxToken} />
+  </div>
+
+  <!-- Quiet Empty State Overlay -->
+  {
+    companies.length === 0 && (
+      <div 
+        id="empty-state-overlay" 
+        class="absolute inset-0 z-10 flex items-center justify-center bg-paper-warm/80 pointer-events-none"
+      >
+        <div class="p-6 bg-paper-card border border-ink/10 rounded-lg shadow-sm text-center pointer-events-auto">
+          <p class="text-sm font-mono tracking-tight text-ink/75 lowercase">
+            {t("empty_state", locale)}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  <!-- Language Switcher overlay -->
+  <div class="absolute top-4 right-4 z-20">
+    <LanguageSwitcher client:load locale={locale} />
+  </div>
+
+  <!-- Peek Card Overlay -->
+  <div class="absolute bottom-0 inset-x-0 z-20 pointer-events-none">
+    <PeekCard client:load companies={companies} locale={locale} />
+  </div>
+</div>

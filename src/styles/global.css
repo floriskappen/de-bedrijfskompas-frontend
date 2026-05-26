@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+@theme {
+  --color-paper-warm: #fbfaf6;
+  --color-paper-card: #f5f3e9;
+  --color-ink: #1c1917;
+  --color-brand-red: #b91c1c;
+  --color-faint: #a8a29e;
+  
+  --font-sans: "Outfit", "Inter", system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-paper-warm);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}

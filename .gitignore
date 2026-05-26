@@ -23,3 +23,5 @@ pnpm-debug.log*
 !.vscode/extensions.json
 !.vscode/launch.json
 .idea/
+.antigravitycli/
+test-results/

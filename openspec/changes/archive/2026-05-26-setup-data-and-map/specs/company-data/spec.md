@@ -2,7 +2,7 @@
 
 ### Requirement: Company record shape
 
-A company record represents one organization being evaluated by the project. Every record MUST contain the top-level fields `company_id` (stable kebab/snake slug used in URLs), `name`, `status`, `coords`, and `scores`. `website` and `address` are optional. Each supported locale (`nl`, `en`) appears as a top-level key containing locale-specific prose. The set of axis identifiers in `scores` is fixed and exhaustive: `substance`, `ecology`, `power`, `embeddedness`, `posture`.
+A company record represents one organization being evaluated by the project. Every record MUST contain the top-level fields `company_id` (stable kebab/snake slug used in URLs), `name`, `status`, `latlng`, and `scores`. `website` and `address` are optional. Each supported locale (`nl`, `en`) appears as a top-level key containing locale-specific prose. The set of axis identifiers in `scores` is fixed and exhaustive: `substance`, `ecology`, `power`, `embeddedness`, `posture`.
 
 #### Scenario: Valid record is exposed to the app
 
@@ -11,7 +11,7 @@ A company record represents one organization being evaluated by the project. Eve
 
 #### Scenario: Record missing a required field is dropped
 
-- **WHEN** a JSON record lacks any of `company_id`, `name`, `status`, `coords`, or `scores`
+- **WHEN** a JSON record lacks any of `company_id`, `name`, `status`, `latlng`, or `scores`
 - **THEN** the record is omitted from the collection and a build-time warning is emitted
 
 ### Requirement: Axis score and null semantics
@@ -25,11 +25,11 @@ Each axis in `scores` has a `score` and an `evidence` value. `score` is an integ
 
 ### Requirement: Coordinates are required and validated
 
-Every renderable company MUST have `coords: { lat, lng }` with `lat` in `[-90, 90]` and `lng` in `[-180, 180]`. Records with missing or out-of-range coordinates are not renderable.
+Every renderable company MUST have `latlng: { lat, lng }` with `lat` in `[-90, 90]` and `lng` in `[-180, 180]`. Records with missing or out-of-range coordinates are not renderable.
 
 #### Scenario: Invalid coordinates exclude the record
 
-- **WHEN** a record has `coords: null` or values outside the valid ranges
+- **WHEN** a record has `latlng: null` or values outside the valid ranges
 - **THEN** the record is dropped from the collection with a build-time warning
 
 ### Requirement: Renderability is determined by status

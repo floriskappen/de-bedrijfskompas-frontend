@@ -1,0 +1,46 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getAllCompanies, getCompanyById } from "../../lib/company-data";
+import { t } from "../../lib/i18n";
+
+export async function getStaticPaths() {
+  const companies = getAllCompanies();
+  return companies.map((c) => ({
+    params: { slug: c.company_id },
+  }));
+}
+
+const { slug } = Astro.params;
+const company = getCompanyById(slug);
+
+if (!company) {
+  return Astro.redirect("/404");
+}
+
+const locale = "en";
+---
+
+<Layout title={`${company.name.toLowerCase()} — ${t("coming_soon", locale)}`}>
+  <main class="min-h-screen flex flex-col items-center justify-center p-6 bg-paper-warm text-ink">
+    <div class="max-w-md w-full text-center space-y-6">
+      <h1 class="text-3xl font-bold tracking-tight lowercase">
+        {company.name.toLowerCase()}
+      </h1>
+      
+      <div class="h-px bg-ink/10 w-24 mx-auto"></div>
+
+      <p class="text-sm font-mono tracking-tight text-ink/65 lowercase">
+        {t("coming_soon", locale)}
+      </p>
+
+      <div class="pt-4">
+        <a
+          href="/en/"
+          class="inline-flex items-center justify-center px-4 py-2 border border-ink/10 rounded-xl text-sm hover:bg-ink/5 transition-all lowercase"
+        >
+          back to the map
+        </a>
+      </div>
+    </div>
+  </main>
+</Layout>

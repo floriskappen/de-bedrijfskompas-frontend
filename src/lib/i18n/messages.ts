@@ -1,0 +1,22 @@
+export const messages = {
+  nl: {
+    title: "de bedrijfskompas",
+    cta: "open volledig profiel",
+    bookmark_label: "voeg bladwijzer toe",
+    empty_state: "geen bedrijven in beeld",
+    switcher_label: "english",
+    tagline_fallback: "geen beschrijving beschikbaar",
+    address_fallback: "onbekende locatie",
+    coming_soon: "binnenkort beschikbaar",
+  },
+  en: {
+    title: "de bedrijfskompas",
+    cta: "open full profile",
+    bookmark_label: "add bookmark",
+    empty_state: "no companies in view",
+    switcher_label: "nederlands",
+    tagline_fallback: "no description available",
+    address_fallback: "unknown location",
+    coming_soon: "coming soon",
+  },
+} as const;

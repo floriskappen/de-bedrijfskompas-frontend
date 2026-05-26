@@ -1,4 +1,8 @@
-## ADDED Requirements
+# Map Overview
+
+Capability rendering the interactive Mapbox map, pins, selection, peek card, language switcher, and browser geolocation.
+
+## Requirements
 
 ### Requirement: Routes
 
@@ -28,30 +32,24 @@ On page load, an interactive Mapbox map MUST render covering the page background
 - **WHEN** the page loads with `?selected=<known-id>`
 - **THEN** the initial viewport centers on that company's coordinates
 
-### Requirement: Pin rendering and tiers
+### Requirement: Pin rendering
 
-Every renderable company MUST appear as exactly one pin at its `coords`. Each pin's visual tier SHALL be derived from the company's **aggregate score**: the integer mean of its non-null axis scores, rounded to the nearest integer. A company whose every axis score is null has no aggregate score.
-
-**Tiers** (load-bearing thresholds):
-- aggregate `>= 80`: large, accent (red), prominent halo
-- aggregate `>= 70 and < 80`: medium, ink, mid halo
-- aggregate `>= 0 and < 70`: small, ink, small halo
-- no aggregate (every axis null): smallest, faint, no halo
+Every renderable company MUST appear as exactly one pin at its `latlng`. All pins SHALL render with the same visual style: a medium ink (black) dot with a standard halo (medium size, ink color, no blur).
 
 #### Scenario: Each renderable company has exactly one pin
 
 - **WHEN** the map finishes rendering
 - **THEN** the number of pins equals the size of the renderable collection
 
-#### Scenario: Aggregate score determines tier
+#### Scenario: Pin renders as a uniform ink dot
 
-- **WHEN** a company's non-null axis scores have a mean of 82
-- **THEN** its pin renders at the `>= 80` tier (large, accent, prominent halo)
+- **WHEN** a company's pin is rendered
+- **THEN** it renders with the uniform ink style (medium, ink color, standard halo)
 
-#### Scenario: All-null company renders at the faintest tier and stays tappable
+#### Scenario: All-null company renders with the uniform ink dot and stays tappable
 
 - **WHEN** a company has every axis `score: null`
-- **THEN** its pin renders at the faint tier and is still tappable to open a peek card
+- **THEN** its pin renders with the same uniform ink style and is still tappable to open a peek card
 
 ### Requirement: Pin selection and URL state
 
@@ -123,8 +121,16 @@ When the renderable company collection is empty at build time, the route MUST bu
 - **WHEN** there are zero renderable companies at build time
 - **THEN** the map renders with no pins and the quiet overlay message is visible
 
-## Operational Pitfalls
+### Requirement: User Geolocation and Distance Display
 
-- **Mapbox public access token at build time.** The token is read from an environment variable and a missing token MUST fail the build rather than silently falling back to an unstyled map. Token leakage is mitigated by domain restriction in the Mapbox dashboard, not by code.
-- **Selection state is client-hydrated, not pre-rendered.** The selected pin and peek card open state live inside a client island and are reconstructed from the URL on mount. Static HTML SHALL NOT serialize a specific selection — otherwise static caches will pin every visitor to whichever selection happened to be in the build snapshot.
-- **Locale-only chrome translation.** UI strings (titles, button labels, hint text, the language switcher label, empty-state copy) translate between locales; slugs and company identifiers do not. Mixing a translated slug into a route will produce a 404.
+The page MUST display a geolocation toggle button on the map. Activating the button requests browser location permission. If granted, the map SHALL display a distinct blue dot marker at the user's location and center the viewport on it. When a company pin is selected, and user location is active, the peek card MUST render the calculated distance (in kilometers, rounded to one decimal place, e.g. "2.4 km" or "15.0 km") directly under the company's city/locality line.
+
+#### Scenario: User geolocation shows location marker and centers map
+
+- **WHEN** the user clicks the geolocation button and grants permission
+- **THEN** a user location pin is added to the map and the map centers on their coordinates
+
+#### Scenario: Selected company displays distance from user
+
+- **WHEN** user location is active and the user selects a company pin
+- **THEN** the peek card displays the distance in kilometers from the user to the company (e.g. "x.x km")

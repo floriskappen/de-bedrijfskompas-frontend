@@ -8,13 +8,28 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.9",
+    "@astrojs/react": "^5.0.5",
     "@tailwindcss/vite": "^4.3.0",
     "astro": "^5.18.1",
+    "mapbox-gl": "^3.24.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "vitest": "^4.1.7"
+  },
+  "overrides": {
+    "vite": "6.4.2"
   }
 }

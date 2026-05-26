@@ -4,20 +4,20 @@ The frontend has nothing beyond a placeholder. To unblock the rest of the projec
 
 ## What Changes
 
-- Add a `company-data` capability defining the JSON shape produced by the pipeline (5 axes, null-allowed scores, evidence categories, `nl`/`en` blocks, `lat`/`lng`) and a single build-time access primitive the rest of the app uses to read it.
-- Add a `map-overview` route capability at `/` (nl, default, no prefix) and `/en/` (english mirror): a Mapbox map, all companies as pins, score-coded styling, tap-to-select with a peek card showing tagline + pentagon + a CTA into the detail route.
+- Add a `company-data` capability defining the JSON shape from a single `companies.json` file (5 axes, null-allowed scores, evidence categories, `nl`/`en` blocks, optional `latlng` coordinate object) and a single build-time access primitive the rest of the app uses to read it.
+- Add a `map-overview` route capability at `/` (nl, default, no prefix) and `/en/` (english mirror): a Mapbox map, all companies as pins, tap-to-select with a peek card showing tagline + pentagon + a CTA into the detail route. If user grants geolocation permission, show their location on the map and the distance to the selected company in the peek card.
 - Configure Astro i18n routing with nl as the unprefixed default and english under `/en/`. URL state (selected pin, language switches) is preserved across the language toggle.
 - Add a stub `/[slug]/` route so the peek card's "open volledig profiel" CTA navigates somewhere. Real detail content is a later change.
-- Ship mock JSON data matching the contract (with `lat`/`lng` added) for now. The pipeline-emitted SQLite source is out of scope here.
+- Ship `companies.json` containing test data matching the contract.
 
 **Out of scope (deliberate, to keep this change tight):** filters sheet, distance filter, search, real detail page content, desktop-specific layout.
 
 ## Capabilities
 
-### New Capabilities
+## New Capabilities
 
-- `company-data`: the typed shape of a company record (axes, scores, evidence, status, i18n blocks, coordinates), the build-time access primitive, and the locale-selection rule for prose fields.
-- `map-overview`: the `/` and `/en/` route experience — map render, pins, selection, peek card, and the language-switcher contract for this page.
+- `company-data`: the typed shape of a company record (axes, scores, evidence, status, i18n blocks, latlng coordinates), the build-time access primitive loading from a single JSON file, and the locale-selection rule for prose fields.
+- `map-overview`: the `/` and `/en/` route experience — map render, pins, selection, peek card, language-switcher, and browser geolocation integration with distance calculation.
 
 ### Modified Capabilities
 
