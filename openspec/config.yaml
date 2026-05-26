@@ -1,0 +1,36 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Project: de-bedrijfskompas — frontend
+  Stack: Astro (static), Tailwind v4, Mapbox (planned). Interactive parts (map, filters) ship as client islands; the rest is static HTML.
+  Languages: Dutch (default) and English. Translations live in the UI; the data contract (from the pipeline) carries per-language blocks (`nl`, `en`) for prose fields. Score values and axis identifiers are language-neutral.
+  Sibling project: a separate `pipeline` repo produces the company JSON data this frontend consumes. The data contract between them is load-bearing; treat it as an external interface.
+  Domain: companies are evaluated on five axes — substance, ecology, power, embeddedness, posture. Scores can be `null` ("no signal"); UI must handle that as a first-class state, not an error. See CONSTITUTION.md and the design bundle for tone and intent.
+
+  Conventions: conventional commits. Lowercase user-visible copy (the design system enforces this; mono utility marks are the exception and are uppercase + 0.08em tracking).
+
+# Per-artifact rules (optional)
+rules:
+  proposal:
+    - State which route(s) and/or shared capability(ies) this change affects and why. If it touches the data contract with the pipeline, say so explicitly — that's the highest-risk surface.
+    - Ideal length is ~15-50 lines. The shorter the better.
+  specs:
+    - Specs are scoped per route (a user-facing page experience) or per shared capability (e.g. the company data contract, the axis-scoring vocabulary). Shared visual components (pentagon, sliders) are implementation reuse, not capabilities — don't spec them on their own; describe their behaviour inside the route specs that use them.
+    - For data-layer specs, define the JSON shape explicitly, including which fields are optional, which can be null, and what null means semantically. Treat the pipeline-emitted contract as an external interface.
+    - For route specs, describe what the user sees, what URL state the page owns (selection, filters, language), and how interactions change that state. Avoid prescribing component structure or framework choices in the spec — those are implementation decisions.
+    - Call out i18n behaviour wherever it matters — which fields are translated, what happens when a translation is missing, and how language is selected and persisted.
+    - Write specs timelessly — describe the current state, not the change. MODIFIED requirements replace the canonical spec verbatim on archive, so avoid "subsumes/replaces/was formerly/remains/no longer" framing in requirement bodies and scenarios. History belongs in the proposal and git log, not the spec.
+    - Keep requirement bodies to one short paragraph. If a requirement needs more, it's probably two requirements, or you're explaining *why* — and rationale belongs in design.md.
+    - One scenario per distinct observable behaviour. If two scenarios share their WHEN clause, merge them. Don't write a scenario whose only purpose is to restate a requirement bullet.
+    - Length is a signal. Route specs typically land at 100-250 lines; data-layer specs are usually shorter (60-150). Above 400 is almost always accidental bloat (prose to delete, scenarios to merge, rationale to move to design.md). Per OpenSpec defaults, most specs stay in Lite mode; Full-mode size is only earned when ambiguity would cost real rework.
+    - Name load-bearing constants and vocabularies (axis IDs, evidence categories, filter thresholds, fixed slug sets) but don't justify them inline — the values belong in the spec so a re-implementer can reproduce behaviour; the rationale belongs in design.md.
+    - Include an "Operational Pitfalls" section only for non-obvious hazards a re-implementer would otherwise miss (e.g. Astro island hydration boundaries, Mapbox token handling, locale-fallback gotchas). Don't enumerate routine defensive code.
+  design:
+    - Keep design.md focused on rationale and trade-offs, not load-bearing data. If a list, constant, or vocabulary is required for correct behaviour, move it into specs/.
+    - Each architectural decision is maybe 5-10 lines — what was chosen, what alternatives were considered, why this one. For a typical route change you'll have 3-6 decisions (e.g. map library choice, state-in-url vs in-memory, island boundary, i18n strategy, null-score UX). Resist the agent's tendency to over-elaborate here.
+    - Ideal length is ~40-80 lines.
+  tasks:
+    - Treat tests as a first-class deliverable, not an afterthought. Each `#### Scenario:` in the spec should map to at least one named test in the task list; reference the test name explicitly so coverage is auditable.
+    - For UI-visible behaviour, prefer a real browser-driven check (Playwright or equivalent) over a unit test that only asserts on a React tree — the design system has visual constraints (lowercase, no blur, single accent) that don't show up in a snapshot of props.
