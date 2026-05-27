@@ -11,6 +11,7 @@ export const messages = {
     filters: "filters",
     in_het_echt: "in het echt",
     hint_template: "{n} bedrijven in beeld · tik een pin",
+    drag_handle: "sleep om te sluiten",
   },
   en: {
     title: "de bedrijfskompas",
@@ -24,5 +25,6 @@ export const messages = {
     filters: "filters",
     in_het_echt: "in real life",
     hint_template: "{n} companies in view · tap a pin",
+    drag_handle: "drag to close",
   },
 } as const;

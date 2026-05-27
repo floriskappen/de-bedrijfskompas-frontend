@@ -78,3 +78,38 @@ em {
   background-image: url("/paper-grain-soft.svg");
   background-size: 600px 600px;
 }
+
+/* peek card slide-in — snappy stepped animation (matches map pan in MapView) */
+@keyframes peek-slide-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes peek-slide-out {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+.peek-card-enter {
+  animation: peek-slide-in 160ms steps(4, end) both;
+}
+
+/* close animation — even quicker, fewer steps */
+.peek-card-exit {
+  animation: peek-slide-out 110ms steps(3, end) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-card-enter,
+  .peek-card-exit {
+    animation: none;
+  }
+}

@@ -11,6 +11,45 @@ interface MapViewProps {
 const PIN_INNER_CLASS =
   "w-[12px] h-[12px] rounded-full bg-ink border-[1.5px] border-paper shadow-[0_0_0_5px_rgba(31,27,22,0.07)]";
 
+// Companies that share an address (e.g. an incubator) collide on the same
+// latlng. Spread collocated pins on a small pixel-space rosette around the
+// shared point so each pin is individually visible and tappable.
+//
+// Uses Vogel's sunflower / phyllotaxis spiral: position i sits at radius
+// `scale * sqrt(i + 0.5)` and angle `i * golden_angle`. This keeps nearest
+// neighbours roughly equidistant for any N, so the layout stays non-
+// overlapping whether there are 2 or 50 companies at one point. Scale ~10
+// keeps the minimum neighbour distance above the ~15px pin diameter.
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const ROSETTE_SCALE_PX = 10;
+function computePinOffsets(
+  companies: Company[]
+): Record<string, [number, number]> {
+  const groups = new Map<string, string[]>();
+  companies.forEach((c) => {
+    if (!c.latlng) return;
+    const key = `${c.latlng.lat.toFixed(6)},${c.latlng.lng.toFixed(6)}`;
+    const arr = groups.get(key) ?? [];
+    arr.push(c.company_id);
+    groups.set(key, arr);
+  });
+  const offsets: Record<string, [number, number]> = {};
+  groups.forEach((ids) => {
+    if (ids.length === 1) {
+      offsets[ids[0]] = [0, 0];
+      return;
+    }
+    // sort for deterministic ordering — each company keeps the same slot
+    ids.sort();
+    ids.forEach((id, i) => {
+      const radius = ROSETTE_SCALE_PX * Math.sqrt(i + 0.5);
+      const angle = i * GOLDEN_ANGLE - Math.PI / 2;
+      offsets[id] = [Math.cos(angle) * radius, Math.sin(angle) * radius];
+    });
+  });
+  return offsets;
+}
+
 export default function MapView({ companies, mapboxToken }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -65,6 +104,8 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
 
     mapboxgl.accessToken = mapboxToken;
 
+    const pinOffsets = computePinOffsets(companies);
+
     // Determine initial selection
     const searchParams = new URLSearchParams(window.location.search);
     const initialSelected = searchParams.get("selected");
@@ -108,6 +149,8 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         const yPct = (1 - (company.latlng.lat - 52.0) / 0.4) * 100;
         el.style.left = `${Math.max(10, Math.min(90, xPct))}%`;
         el.style.top = `${Math.max(10, Math.min(90, yPct))}%`;
+        const [ox, oy] = pinOffsets[company.company_id] ?? [0, 0];
+        if (ox || oy) el.style.transform = `translate(${ox}px, ${oy}px)`;
 
         el.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -175,7 +218,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
     }
 
     // Handle map click to clear selection
-    map.on("click", (e) => {
+    map.on("click", () => {
       updateSelection(null);
     });
 
@@ -205,7 +248,10 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         }
       });
 
-      const marker = new mapboxgl.Marker({ element: el })
+      const marker = new mapboxgl.Marker({
+        element: el,
+        offset: pinOffsets[company.company_id] ?? [0, 0],
+      })
         .setLngLat([company.latlng.lng, company.latlng.lat])
         .addTo(map);
 
@@ -264,8 +310,31 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
   useEffect(() => {
     if (selectedId && mapRef.current) {
       const company = companies.find((c) => c.company_id === selectedId);
-      if (company && company.latlng) {
-        mapRef.current.panTo([company.latlng.lng, company.latlng.lat]);
+      if (company?.latlng) {
+        const map = mapRef.current;
+        const target: [number, number] = [company.latlng.lng, company.latlng.lat];
+        // The peek card may still be mounting/animating in when selection
+        // changes. Retry across a few animation frames until the card is in
+        // the DOM with a real height, then pan with offset = -height/2 so
+        // the pin centres in the strip of map visible above the card.
+        let tries = 0;
+        const tryPan = () => {
+          const card = document.getElementById("peek-card");
+          const h = card?.getBoundingClientRect().height ?? 0;
+          if (h > 0 || tries >= 8) {
+            map.easeTo({
+              center: target,
+              offset: [0, -h / 2],
+              duration: 160,
+              // 4-step easing matches the peek card's stepped slide-in
+              easing: (t) => (t >= 1 ? 1 : Math.floor(t * 4) / 4),
+            });
+            return;
+          }
+          tries++;
+          requestAnimationFrame(tryPan);
+        };
+        requestAnimationFrame(tryPan);
       }
     }
 

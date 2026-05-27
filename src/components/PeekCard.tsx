@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Company } from "../lib/company-data/types";
 import { getLocalizedField } from "../lib/company-data";
 import { t } from "../lib/i18n";
@@ -32,7 +32,101 @@ function haversineDistance(
 
 export default function PeekCard({ companies, locale }: PeekCardProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [displayedId, setDisplayedId] = useState<string | null>(null);
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ startY: number; cardH: number } | null>(null);
+  const skipExitAnimRef = useRef(false);
+
+  // Sync intent (selectedId) into the rendered card (displayedId). When the
+  // selection clears externally (tap-out, Escape), play a quick exit
+  // animation before unmounting. Drag-close skips this because the drag
+  // already animated the card out.
+  useEffect(() => {
+    if (selectedId) {
+      const card = cardRef.current;
+      if (card) card.classList.remove("peek-card-exit");
+      setDisplayedId(selectedId);
+      return;
+    }
+    if (!displayedId) return;
+    if (skipExitAnimRef.current) {
+      skipExitAnimRef.current = false;
+      setDisplayedId(null);
+      return;
+    }
+    const card = cardRef.current;
+    if (!card) {
+      setDisplayedId(null);
+      return;
+    }
+    card.style.transition = "";
+    card.style.transform = "";
+    card.style.animation = "";
+    card.classList.remove("peek-card-enter");
+    // force reflow so the exit keyframe restarts cleanly
+    void card.offsetWidth;
+    card.classList.add("peek-card-exit");
+    const onEnd = () => {
+      card.removeEventListener("animationend", onEnd);
+      setDisplayedId(null);
+    };
+    card.addEventListener("animationend", onEnd);
+  }, [selectedId]);
+
+  const dispatchClose = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("selected");
+    window.history.pushState({}, "", url.toString());
+    setSelectedId(null);
+    window.dispatchEvent(
+      new CustomEvent("selection-changed", { detail: { companyId: null } })
+    );
+  };
+
+  const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const cardH = cardRef.current.getBoundingClientRect().height;
+    dragStartRef.current = { startY: e.clientY, cardH };
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    // disable entrance animation / prior transitions so inline transform wins
+    cardRef.current.style.animation = "none";
+    cardRef.current.style.transition = "none";
+    cardRef.current.style.transform = "translateY(0px)";
+  };
+
+  const onHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = dragStartRef.current;
+    if (!s || !cardRef.current) return;
+    const raw = e.clientY - s.startY;
+    // down: 1:1 finger tracking. up: very stiff rubber-band capped at -20px.
+    const y = raw >= 0 ? raw : Math.max(-20, raw / 6);
+    cardRef.current.style.transform = `translateY(${y}px)`;
+  };
+
+  const onHandlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = dragStartRef.current;
+    if (!s || !cardRef.current) return;
+    const card = cardRef.current;
+    const raw = e.clientY - s.startY;
+    const shouldClose = raw > s.cardH * 0.3;
+    card.style.transition = "transform 160ms steps(4, end)";
+    const cleanup = () => {
+      card.removeEventListener("transitionend", cleanup);
+      if (shouldClose) {
+        skipExitAnimRef.current = true;
+        dispatchClose();
+      } else {
+        card.style.transition = "";
+        card.style.transform = "";
+      }
+    };
+    card.addEventListener("transitionend", cleanup);
+    card.style.transform = shouldClose
+      ? `translateY(${s.cardH}px)`
+      : "translateY(0px)";
+    dragStartRef.current = null;
+  };
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -72,9 +166,9 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
     };
   }, [companies]);
 
-  if (!selectedId) return null;
+  if (!displayedId) return null;
 
-  const company = companies.find((c) => c.company_id === selectedId);
+  const company = companies.find((c) => c.company_id === displayedId);
   if (!company) return null;
 
   const city = company.address?.city || t("address_fallback", locale);
@@ -90,11 +184,22 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
 
   return (
     <div
-      className="w-full max-w-lg mx-auto bg-paper-card paper-grain border-t border-x border-ink/15 shadow-[0_-8px_24px_rgba(31,27,22,0.10)] px-5 pt-2.5 pb-9 pointer-events-auto"
-      style={{ contentVisibility: "auto" }}
+      ref={cardRef}
+      id="peek-card"
+      className="peek-card-enter w-full max-w-lg mx-auto bg-paper-card paper-grain border-t border-x border-ink/15 shadow-[0_-8px_24px_rgba(31,27,22,0.10)] px-5 pt-2.5 pb-9 pointer-events-auto will-change-transform"
     >
-      {/* drag handle */}
-      <div className="mx-auto mb-3.5 h-1 w-10 rounded-sm bg-ink/20" />
+      {/* drag handle (enlarged hit area; visible bar centred inside) */}
+      <div
+        className="mx-auto mb-2 flex h-7 w-20 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
+        onPointerDown={onHandlePointerDown}
+        onPointerMove={onHandlePointerMove}
+        onPointerUp={onHandlePointerUp}
+        onPointerCancel={onHandlePointerUp}
+        aria-label={t("drag_handle", locale)}
+        role="button"
+      >
+        <div className="h-1 w-10 rounded-sm bg-ink/20" />
+      </div>
 
       {/* header row: monogram + name + locality/distance */}
       <div className="mb-3.5 flex items-center gap-3">
