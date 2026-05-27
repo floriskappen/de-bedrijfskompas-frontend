@@ -34,6 +34,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [displayedId, setDisplayedId] = useState<string | null>(null);
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [faviconFailed, setFaviconFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ startY: number; cardH: number } | null>(null);
   const skipExitAnimRef = useRef(false);
@@ -46,6 +47,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
     if (selectedId) {
       const card = cardRef.current;
       if (card) card.classList.remove("peek-card-exit");
+      setFaviconFailed(false);
       setDisplayedId(selectedId);
       return;
     }
@@ -203,9 +205,24 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
 
       {/* header row: monogram + name + locality/distance */}
       <div className="mb-3.5 flex items-center gap-3">
-        <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
-          {monogram}
-        </div>
+        {company.favicon_url && !faviconFailed ? (
+          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-paper border border-ink/15">
+            <img
+              src={company.favicon_url}
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setFaviconFailed(true)}
+            />
+          </div>
+        ) : (
+          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
+            {monogram}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <h2
             id="peek-card-title"

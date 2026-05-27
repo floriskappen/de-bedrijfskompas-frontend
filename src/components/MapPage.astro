@@ -1,11 +1,9 @@
 ---
 import type { Company } from "../lib/company-data/types";
 import { t } from "../lib/i18n";
-import { messages } from "../lib/i18n/messages";
 import MapView from "./MapView";
 import PeekCard from "./PeekCard";
 import LanguageSwitcher from "./LanguageSwitcher";
-import BottomHint from "./BottomHint";
 
 interface Props {
   companies: Company[];
@@ -19,8 +17,6 @@ const mapboxToken = import.meta.env.MAPBOX_PUBLIC_TOKEN || process.env.MAPBOX_PU
 if (!mapboxToken) {
   throw new Error("MAPBOX_PUBLIC_TOKEN is required to build the application.");
 }
-
-const hintText = messages[locale].hint_template.replace("{n}", String(companies.length));
 ---
 
 <div class="relative w-screen h-screen overflow-hidden bg-paper flex flex-col">
@@ -62,9 +58,6 @@ const hintText = messages[locale].hint_template.replace("{n}", String(companies.
   <div class="absolute top-4 right-4 z-20">
     <LanguageSwitcher client:load locale={locale} />
   </div>
-
-  <!-- bottom hint (hides when a pin is selected) -->
-  {companies.length > 0 && <BottomHint client:load text={hintText} />}
 
   <!-- peek card overlay -->
   <div class="absolute bottom-0 inset-x-0 z-20 pointer-events-none">

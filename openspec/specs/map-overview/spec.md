@@ -92,12 +92,22 @@ Tapping a pin MUST select the corresponding company and persist the selection in
 
 ### Requirement: Peek card content
 
-When a company is selected, a peek card MUST overlay the bottom of the map showing — in order — the company's identity (monogram, name, locality with optional distance), its tagline in the current locale highlighted inside an "in het echt" / "in real life" callout, a pentagon of all five axis scores, a primary "open volledig profiel" / "open full profile" CTA, and an inert bookmark affordance. The card MUST NOT show an explicit close button; selection clears via Escape, tapping outside any pin, tapping the selected pin again, or dragging the card down. The card SHALL slide in from the bottom with a snappy, stepped animation, and the map SHALL pan in parallel so the selected pin sits in the centre of the strip of map still visible above the card. The drag handle SHALL be draggable: dragging down past a small threshold closes the card; releasing before it snaps back; dragging upward MUST feel very stiff (rubber-band with a small hard cap) and snap back on release.
+When a company is selected, a peek card MUST overlay the bottom of the map showing — in order — the company's identity (an identity tile, name, locality with optional distance), its tagline in the current locale highlighted inside an "in het echt" / "in real life" callout, a pentagon of all five axis scores, a primary "open volledig profiel" / "open full profile" CTA, and an inert bookmark affordance. The identity tile SHALL render the company's favicon when `favicon_url` is present and loads successfully, and SHALL fall back to a square ink monogram tile (the uppercase first character of `name` on the ink background) when `favicon_url` is absent or the favicon image fails to load. The card MUST NOT show an explicit close button; selection clears via Escape, tapping outside any pin, tapping the selected pin again, or dragging the card down. The card SHALL slide in from the bottom with a snappy, stepped animation, and the map SHALL pan in parallel so the selected pin sits in the centre of the strip of map still visible above the card. The drag handle SHALL be draggable: dragging down past a small threshold closes the card; releasing before it snaps back; dragging upward MUST feel very stiff (rubber-band with a small hard cap) and snap back on release.
 
-#### Scenario: Header pairs monogram, name, and locality
+#### Scenario: Identity tile prefers favicon, falls back to monogram
+
+- **WHEN** a selected company has a `favicon_url` that loads successfully
+- **THEN** the identity tile renders the favicon
+
+#### Scenario: Identity tile falls back when favicon is missing or broken
+
+- **WHEN** a selected company has no `favicon_url`, or its favicon fails to load
+- **THEN** the identity tile renders the square ink monogram (uppercase first character of `name`) instead
+
+#### Scenario: Header pairs identity tile, name, and locality
 
 - **WHEN** the peek card renders for a company whose `name` is "Fairphone"
-- **THEN** a square monogram showing "F" sits beside the company name "Fairphone", with a locality line reading `address.city` underneath
+- **THEN** the identity tile sits beside the company name "Fairphone", with a locality line reading `address.city` underneath
 
 #### Scenario: Callout renders current-locale tagline
 
@@ -187,17 +197,12 @@ The page MUST display a geolocation toggle button on the map. Activating the but
 
 ### Requirement: Map chrome
 
-The map experience MUST surface two chrome elements above the basemap: a *filters pill* anchored top-right showing the filters icon and the word "filters" — visually present but inert until the filters capability ships; and a *bottom hint*, anchored above the safe-area bottom and only visible while no pin is selected, reading `{n} bedrijven in beeld · tik een pin` (nl) / `{n} companies in view · tap a pin` (en) where `{n}` is the size of the renderable collection. All chrome (filters pill, language switcher, bottom hint) SHALL share one visual idiom: sharp corners, paper background, 1px ink border, mono-uppercase label.
+The map experience MUST surface two chrome elements above the basemap: a *filters pill* anchored top-right showing the filters icon and the word "filters" — visually present but inert until the filters capability ships; and a *language switcher* in the top-right corner. Both chrome elements SHALL share one visual idiom: sharp corners, paper background, 1px ink border, mono-uppercase label.
 
 #### Scenario: Filters pill is inert
 
 - **WHEN** a user taps the filters pill
 - **THEN** nothing happens (no panel opens, no URL change) — the pill is a placeholder for the future filters capability
-
-#### Scenario: Bottom hint reflects renderable count and hides on selection
-
-- **WHEN** the page renders with N renderable companies and no `?selected`
-- **THEN** the bottom hint reads "N bedrijven in beeld · tik een pin" (nl) / "N companies in view · tap a pin" (en); when a pin is selected the hint is hidden
 
 ### Requirement: Visual design system
 
@@ -210,6 +215,6 @@ The map page MUST render on the de-ontwerp visual identity: the paper palette (p
 
 #### Scenario: Mono utility marks render uppercase with tracking
 
-- **WHEN** a label uses the mono family (e.g. the "in het echt" callout label, the bottom hint, axis labels in the pentagon)
+- **WHEN** a label uses the mono family (e.g. the "in het echt" callout label, axis labels in the pentagon)
 - **THEN** it appears uppercase with visible letter-tracking
 

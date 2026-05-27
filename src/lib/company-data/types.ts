@@ -34,6 +34,7 @@ export interface Company {
   company_id: string;
   name: string;
   website?: string;
+  favicon_url?: string;
   status: string;
   address?: Address;
   latlng?: Coords | null;

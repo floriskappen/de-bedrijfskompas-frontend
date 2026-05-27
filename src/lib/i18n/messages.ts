@@ -10,7 +10,6 @@ export const messages = {
     coming_soon: "binnenkort beschikbaar",
     filters: "filters",
     in_het_echt: "in het echt",
-    hint_template: "{n} bedrijven in beeld · tik een pin",
     drag_handle: "sleep om te sluiten",
   },
   en: {
@@ -24,7 +23,6 @@ export const messages = {
     coming_soon: "coming soon",
     filters: "filters",
     in_het_echt: "in real life",
-    hint_template: "{n} companies in view · tap a pin",
     drag_handle: "drag to close",
   },
 } as const;

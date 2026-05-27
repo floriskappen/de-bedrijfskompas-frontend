@@ -319,9 +319,12 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
 
         if (!markersRef.current[key]) {
           const el = document.createElement("div");
-          el.className = "flex items-center justify-center w-10 h-10 rounded-full bg-ink text-paper border-2 border-paper shadow-md font-mono text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95";
           el.id = `cluster-${clusterId}`;
-          el.textContent = String(point_count);
+
+          const innerEl = document.createElement("div");
+          innerEl.className = "flex items-center justify-center w-10 h-10 rounded-full bg-ink text-paper border-2 border-paper shadow-md font-mono text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95";
+          innerEl.textContent = String(point_count);
+          el.appendChild(innerEl);
 
           el.addEventListener("click", (e) => {
             e.stopPropagation();
