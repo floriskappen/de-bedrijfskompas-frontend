@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import Supercluster from "supercluster";
 import type { Company } from "../lib/company-data/types";
 
 interface MapViewProps {
@@ -58,6 +59,66 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
+
+  // Determine initial selection and zoom
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const initialSelected = searchParams ? searchParams.get("selected") : null;
+  const selectedCompany = initialSelected ? companies.find((c) => c.company_id === initialSelected) : null;
+  const initialZoom = selectedCompany ? 13 : 10;
+
+  // Clustering states
+  const [zoom, setZoom] = useState<number>(initialZoom);
+  const [supercluster, setSupercluster] = useState<Supercluster | null>(null);
+
+  const pinOffsets = computePinOffsets(companies);
+
+  // Initialize Supercluster
+  useEffect(() => {
+    const sc = new Supercluster({
+      radius: 40,
+      maxZoom: 12,
+    });
+
+    const geojsonPoints = companies
+      .filter((c) => c.latlng)
+      .map((c) => ({
+        type: "Feature" as const,
+        properties: {
+          cluster: false,
+          companyId: c.company_id,
+          company: c,
+        },
+        geometry: {
+          type: "Point" as const,
+          coordinates: [c.latlng.lng, c.latlng.lat],
+        },
+      }));
+
+    sc.load(geojsonPoints);
+    setSupercluster(sc);
+  }, [companies]);
+
+  // Support window hooks for E2E tests
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).setTestZoom = (z: number) => {
+        setZoom(z);
+        if (mapboxgl.supported() && mapRef.current) {
+          mapRef.current.setZoom(z);
+        }
+      };
+      (window as any).setTestCenterAndZoom = (lng: number, lat: number, z: number) => {
+        setZoom(z);
+        if (mapboxgl.supported() && mapRef.current) {
+          mapRef.current.setZoom(z);
+          mapRef.current.setCenter([lng, lat]);
+        }
+      };
+    }
+  }, []);
+
   const handleGeolocate = () => {
     if (!navigator.geolocation) {
       console.warn("Geolocation is not supported by this browser.");
@@ -104,14 +165,12 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
 
     mapboxgl.accessToken = mapboxToken;
 
-    const pinOffsets = computePinOffsets(companies);
-
     // Determine initial selection
     const searchParams = new URLSearchParams(window.location.search);
     const initialSelected = searchParams.get("selected");
     const selectedCompany = initialSelected ? companies.find((c) => c.company_id === initialSelected) : null;
 
-    // 8.4 When ?selected resolves to an unknown id, strip the param without opening a peek card
+    // When ?selected resolves to an unknown id, strip the param without opening a peek card
     if (initialSelected && !selectedCompany) {
       const url = new URL(window.location.href);
       url.searchParams.delete("selected");
@@ -122,52 +181,6 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
     if (!mapboxgl.supported()) {
       console.warn("WebGL not supported. Rendering fallback map for tests.");
       
-      const container = mapContainerRef.current;
-      container.style.position = "relative";
-      container.style.backgroundColor = "#eee";
-      
-      const bgClick = () => updateSelection(null);
-      container.addEventListener("click", bgClick);
-
-      const createdElements: HTMLDivElement[] = [];
-
-      companies.forEach((company) => {
-        if (!company.latlng) return;
-
-        const el = document.createElement("div");
-        el.setAttribute("data-company-id", company.company_id);
-        el.id = `pin-${company.company_id}`;
-
-        el.className = "absolute";
-
-        const innerEl = document.createElement("div");
-        innerEl.className = `${PIN_INNER_CLASS} cursor-pointer transition-all duration-200 pin-inner`;
-
-        el.appendChild(innerEl);
-
-        const xPct = ((company.latlng.lng - 4.8) / 0.6) * 100;
-        const yPct = (1 - (company.latlng.lat - 52.0) / 0.4) * 100;
-        el.style.left = `${Math.max(10, Math.min(90, xPct))}%`;
-        el.style.top = `${Math.max(10, Math.min(90, yPct))}%`;
-        const [ox, oy] = pinOffsets[company.company_id] ?? [0, 0];
-        if (ox || oy) el.style.transform = `translate(${ox}px, ${oy}px)`;
-
-        el.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const currentParams = new URLSearchParams(window.location.search);
-          const currentSelected = currentParams.get("selected");
-          console.log("[fallback] click on:", company.company_id, "currentSelected:", currentSelected);
-          if (currentSelected === company.company_id) {
-            updateSelection(null);
-          } else {
-            updateSelection(company.company_id);
-          }
-        });
-
-        container.appendChild(el);
-        createdElements.push(el);
-      });
-
       if (selectedCompany) {
         setSelectedId(selectedCompany.company_id);
         window.dispatchEvent(
@@ -190,8 +203,6 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
       window.addEventListener("selection-changed", handleExternalSelection);
 
       return () => {
-        container.removeEventListener("click", bgClick);
-        createdElements.forEach(el => el.remove());
         window.removeEventListener("keydown", handleKeyDown);
         window.removeEventListener("selection-changed", handleExternalSelection);
       };
@@ -206,56 +217,30 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
 
     mapRef.current = map;
 
-    // 6.3 Auto-fit bounds on cold load if no selection
+    // Auto-fit bounds on cold load if no selection
     if (!selectedCompany && companies.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds();
+      const boundsObj = new mapboxgl.LngLatBounds();
       companies.forEach((c) => {
         if (c.latlng) {
-          bounds.extend([c.latlng.lng, c.latlng.lat]);
+          boundsObj.extend([c.latlng.lng, c.latlng.lat]);
         }
       });
-      map.fitBounds(bounds, { padding: 80, maxZoom: 14, animate: false });
+      map.fitBounds(boundsObj, { padding: 80, maxZoom: 14, animate: false });
     }
+
+    const updateViewport = () => {
+      setZoom(map.getZoom());
+    };
+
+    map.on("zoom", updateViewport);
+    map.on("move", updateViewport);
+
+    // Initial viewport sync
+    updateViewport();
 
     // Handle map click to clear selection
     map.on("click", () => {
       updateSelection(null);
-    });
-
-    // Add markers
-    companies.forEach((company) => {
-      if (!company.latlng) return;
-
-      const el = document.createElement("div");
-      el.setAttribute("data-company-id", company.company_id);
-      el.id = `pin-${company.company_id}`;
-
-      const innerEl = document.createElement("div");
-      innerEl.className = `${PIN_INNER_CLASS} cursor-pointer transition-all duration-200 pin-inner`;
-
-      el.appendChild(innerEl);
-
-      // Handle marker click
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const currentParams = new URLSearchParams(window.location.search);
-        const currentSelected = currentParams.get("selected");
-        console.log("[mapbox] click on:", company.company_id, "currentSelected:", currentSelected);
-        if (currentSelected === company.company_id) {
-          updateSelection(null);
-        } else {
-          updateSelection(company.company_id);
-        }
-      });
-
-      const marker = new mapboxgl.Marker({
-        element: el,
-        offset: pinOffsets[company.company_id] ?? [0, 0],
-      })
-        .setLngLat([company.latlng.lng, company.latlng.lat])
-        .addTo(map);
-
-      markersRef.current[company.company_id] = marker;
     });
 
     // Set initial selection state
@@ -289,7 +274,14 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         userMarkerRef.current.remove();
         userMarkerRef.current = null;
       }
-      map.remove();
+      // Remove all remaining markers
+      Object.values(markersRef.current).forEach((marker) => marker.remove());
+      markersRef.current = {};
+
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
   }, [companies, mapboxToken]);
 
@@ -306,7 +298,113 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
     window.dispatchEvent(new CustomEvent("selection-changed", { detail: { companyId: id } }));
   };
 
-  // React to selectedId changes to update marker DOM elements (selected class/ring) and pan map
+  // Synchronize standard Mapbox markers
+  useEffect(() => {
+    if (!mapboxgl.supported() || !mapRef.current || !supercluster) return;
+    const map = mapRef.current;
+    const sc = supercluster;
+
+    const currentZoom = Math.min(16, Math.round(zoom));
+    const clusters = sc.getClusters([-180, -90, 180, 90], currentZoom);
+    const nextMarkerKeys = new Set<string>();
+
+    clusters.forEach((feature) => {
+      const [lng, lat] = feature.geometry.coordinates;
+      const { cluster, point_count, companyId } = feature.properties;
+
+      if (cluster) {
+        const clusterId = feature.id as number;
+        const key = `cluster-${clusterId}`;
+        nextMarkerKeys.add(key);
+
+        if (!markersRef.current[key]) {
+          const el = document.createElement("div");
+          el.className = "flex items-center justify-center w-10 h-10 rounded-full bg-ink text-paper border-2 border-paper shadow-md font-mono text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95";
+          el.id = `cluster-${clusterId}`;
+          el.textContent = String(point_count);
+
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const expansionZoom = sc.getClusterExpansionZoom(clusterId);
+            const targetZoom = Math.min(18, Math.max(Math.round(map.getZoom()) + 2, expansionZoom));
+            console.log("MAPBOX CLUSTER CLICKED!", clusterId, "targetZoom =", targetZoom);
+            map.easeTo({
+              center: [lng, lat],
+              zoom: targetZoom,
+              duration: 300,
+            });
+          });
+
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat([lng, lat])
+            .addTo(map);
+
+          markersRef.current[key] = marker;
+        }
+      } else {
+        const key = `pin-${companyId}`;
+        nextMarkerKeys.add(key);
+
+        if (!markersRef.current[key]) {
+          const el = document.createElement("div");
+          el.setAttribute("data-company-id", companyId);
+          el.id = `pin-${companyId}`;
+
+          const innerEl = document.createElement("div");
+          innerEl.className = `${PIN_INNER_CLASS} cursor-pointer transition-all duration-200 pin-inner`;
+          
+          if (companyId === selectedId) {
+            innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
+            el.classList.add("z-50");
+          }
+
+          el.appendChild(innerEl);
+
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const currentSelectedId = selectedIdRef.current;
+            if (currentSelectedId === companyId) {
+              updateSelection(null);
+            } else {
+              updateSelection(companyId);
+            }
+          });
+
+          const marker = new mapboxgl.Marker({
+            element: el,
+            offset: pinOffsets[companyId] ?? [0, 0],
+          })
+            .setLngLat([lng, lat])
+            .addTo(map);
+
+          markersRef.current[key] = marker;
+        } else {
+          // Update selected style
+          const el = markersRef.current[key].getElement();
+          const innerEl = el.querySelector(".pin-inner");
+          if (innerEl) {
+            if (companyId === selectedId) {
+              innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
+              el.classList.add("z-50");
+            } else {
+              innerEl.classList.remove("ring-2", "ring-offset-2", "ring-red", "scale-110");
+              el.classList.remove("z-50");
+            }
+          }
+        }
+      }
+    });
+
+    // Remove markers that are no longer visible
+    Object.keys(markersRef.current).forEach((key) => {
+      if (!nextMarkerKeys.has(key)) {
+        markersRef.current[key].remove();
+        delete markersRef.current[key];
+      }
+    });
+  }, [zoom, supercluster, companies, selectedId]);
+
+  // React to selectedId changes to pan map
   useEffect(() => {
     if (selectedId && mapRef.current) {
       const company = companies.find((c) => c.company_id === selectedId);
@@ -337,27 +435,86 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         requestAnimationFrame(tryPan);
       }
     }
-
-    companies.forEach((company) => {
-      const el = document.querySelector(`[data-company-id="${company.company_id}"]`);
-      if (el) {
-        const innerEl = el.querySelector(".pin-inner");
-        if (innerEl) {
-          if (company.company_id === selectedId) {
-            innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
-            el.classList.add("z-50");
-          } else {
-            innerEl.classList.remove("ring-2", "ring-offset-2", "ring-red", "scale-110");
-            el.classList.remove("z-50");
-          }
-        }
-      }
-    });
   }, [selectedId, companies]);
+
+  const isSupported = mapboxgl.supported();
+  const fallbackFeatures = !isSupported && supercluster
+    ? supercluster.getClusters([-180, -90, 180, 90], Math.round(zoom))
+    : [];
 
   return (
     <div className="relative w-full h-full">
-      <div ref={mapContainerRef} id="map-view" className="w-full h-full" />
+      <div ref={mapContainerRef} id="map-view" className="w-full h-full">
+        {!isSupported && (
+          <div
+            className="absolute inset-0 bg-[#eee]"
+            onClick={() => updateSelection(null)}
+          >
+            {fallbackFeatures.map((feature) => {
+              const [lng, lat] = feature.geometry.coordinates;
+              const { cluster, point_count, companyId } = feature.properties;
+
+              const xPct = ((lng - 4.8) / 0.6) * 100;
+              const yPct = (1 - (lat - 52.0) / 0.4) * 100;
+
+              const left = `${Math.max(10, Math.min(90, xPct))}%`;
+              const top = `${Math.max(10, Math.min(90, yPct))}%`;
+
+              if (cluster) {
+                const clusterId = feature.id as number;
+                return (
+                  <div
+                    key={`cluster-${clusterId}`}
+                    id={`cluster-${clusterId}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const expansionZoom = supercluster!.getClusterExpansionZoom(clusterId);
+                      const targetZoom = Math.min(18, Math.max(Math.round(zoom) + 2, expansionZoom));
+                      console.log("FALLBACK CLUSTER CLICKED!", clusterId, "targetZoom =", targetZoom);
+                      setZoom(targetZoom);
+                    }}
+                    className="absolute flex items-center justify-center w-10 h-10 rounded-full bg-ink text-paper border-2 border-paper shadow-md font-mono text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95 -translate-x-1/2 -translate-y-1/2"
+                    style={{ left, top }}
+                  >
+                    {point_count}
+                  </div>
+                );
+              } else {
+                const [ox, oy] = pinOffsets[companyId] ?? [0, 0];
+                const isSelected = companyId === selectedId;
+                return (
+                  <div
+                    key={`pin-${companyId}`}
+                    data-company-id={companyId}
+                    id={`pin-${companyId}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (selectedId === companyId) {
+                        updateSelection(null);
+                      } else {
+                        updateSelection(companyId);
+                      }
+                    }}
+                    className="absolute cursor-pointer"
+                    style={{
+                      left,
+                      top,
+                      transform: `translate(${ox}px, ${oy}px) translate(-50%, -50%)`,
+                      zIndex: isSelected ? 50 : undefined,
+                    }}
+                  >
+                    <div
+                      className={`${PIN_INNER_CLASS} transition-all duration-200 pin-inner ${
+                        isSelected ? "ring-2 ring-offset-2 ring-red scale-110" : ""
+                      }`}
+                    />
+                  </div>
+                );
+              }
+            })}
+          </div>
+        )}
+      </div>
       
       <button
         id="geolocate-button"
@@ -384,7 +541,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         </svg>
       </button>
 
-      {userLocation && !mapboxgl.supported() && (
+      {userLocation && !isSupported && (
         <div
           id="user-location-marker"
           className="absolute w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_8px_rgba(59,130,246,0.5)] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -397,3 +554,4 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
     </div>
   );
 }
+

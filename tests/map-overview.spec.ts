@@ -9,6 +9,19 @@ test.describe("map-overview E2E tests", () => {
     });
   });
 
+  const setZoom = async (page: any, zoomVal: number) => {
+    await page.waitForFunction(() => typeof (window as any).setTestZoom === "function");
+    await page.evaluate((z) => (window as any).setTestZoom(z), zoomVal);
+  };
+
+  const setCenterAndZoom = async (page: any, lng: number, lat: number, zoomVal: number) => {
+    await page.waitForFunction(() => typeof (window as any).setTestCenterAndZoom === "function");
+    await page.evaluate(
+      ({ lng, lat, z }) => (window as any).setTestCenterAndZoom(lng, lat, z),
+      { lng, lat, z: zoomVal }
+    );
+  };
+
   // 13.1 dutch route at root
   test("dutch route at root", async ({ page }) => {
     await page.goto("/");
@@ -28,6 +41,7 @@ test.describe("map-overview E2E tests", () => {
   // 13.3 auto-fit on cold load & 13.5 each renderable company has exactly one pin
   test("each renderable company has exactly one pin", async ({ page }) => {
     await page.goto("/");
+    await setZoom(page, 16);
     // We have 13 valid companies in companies.json (after dropping 4 invalid ones)
     const pins = page.locator("[data-company-id]");
     await expect(pins).toHaveCount(13);
@@ -36,6 +50,7 @@ test.describe("map-overview E2E tests", () => {
   // company with all-null scores still renders a pin and stays tappable
   test("null-score company renders a pin and stays tappable", async ({ page }) => {
     await page.goto("/");
+    await setCenterAndZoom(page, 5.38085615, 52.15584731, 16);
 
     const pinGravity = page.locator("#pin-gravity");
     await expect(pinGravity).toBeVisible();
@@ -48,6 +63,7 @@ test.describe("map-overview E2E tests", () => {
   // 13.8 selecting a pin updates the URL and opens the peek card
   test("selecting a pin updates the URL and opens the peek card", async ({ page }) => {
     await page.goto("/");
+    await setCenterAndZoom(page, 4.92268301, 52.36276833, 16);
     const pin = page.locator("#pin-land-life-company");
     await pin.click();
     
@@ -75,6 +91,7 @@ test.describe("map-overview E2E tests", () => {
   test("clearing selection", async ({ page }) => {
     // 1. Test Escape key
     await page.goto("/?selected=land-life-company");
+    await setCenterAndZoom(page, 4.92268301, 52.36276833, 16);
     
     // Wait for PeekCard to render (meaning hydration completed)
     const title = page.locator("#peek-card-title");
@@ -180,6 +197,7 @@ test.describe("map-overview E2E tests", () => {
     await context.grantPermissions(["geolocation"]);
     await context.setGeolocation({ latitude: 52.37, longitude: 4.89 });
     await page.goto("/");
+    await setCenterAndZoom(page, 4.92268301, 52.36276833, 16);
     
     // Make user location active
     await page.locator("#geolocate-button").click();
@@ -189,5 +207,46 @@ test.describe("map-overview E2E tests", () => {
     
     // distance is appended to the locality line under the company title
     await expect(page.locator("#peek-card-title").locator("..").locator("p")).toContainText("km");
+  });
+
+  // Scenario: Dynamic clustering based on zoom
+  test("dynamic clustering based on zoom", async ({ page }) => {
+    await page.goto("/");
+    await setZoom(page, 10);
+    await page.waitForTimeout(500);
+    
+    // At zoom 10, some pins should be clustered.
+    // Check if cluster elements are visible
+    const clusters = page.locator('[id^="cluster-"]');
+    await expect(clusters.first()).toBeVisible();
+
+    const pinsCount = await page.locator("[data-company-id]").count();
+    const clusterLocators = await clusters.all();
+    let clusterPointsCount = 0;
+    for (const cl of clusterLocators) {
+      const text = await cl.textContent();
+      clusterPointsCount += parseInt(text || "0", 10);
+    }
+    expect(pinsCount + clusterPointsCount).toBe(13);
+  });
+
+  // Scenario: Clicking a cluster zooms in
+  test("clicking a cluster zooms in", async ({ page }) => {
+    await page.goto("/");
+    await setZoom(page, 10);
+    await page.waitForTimeout(500);
+
+    const clusters = page.locator('[id^="cluster-"]');
+    await expect(clusters.first()).toBeVisible();
+
+    const pinsCountBefore = await page.locator("[data-company-id]").count();
+    
+    // Click the first cluster to zoom in
+    await clusters.first().dispatchEvent('click');
+
+    // The zoom level increases, expanding clusters and revealing more individual pins
+    await expect.poll(async () => {
+      return await page.locator("[data-company-id]").count();
+    }).toBeGreaterThan(pinsCountBefore);
   });
 });
