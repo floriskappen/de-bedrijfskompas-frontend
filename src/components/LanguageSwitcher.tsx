@@ -54,7 +54,7 @@ export default function LanguageSwitcher({ locale }: LanguageSwitcherProps) {
     <a
       href={href || "#"}
       id="language-switcher"
-      className="inline-flex items-center justify-center px-3 py-1.5 bg-paper-card border border-ink/10 rounded-lg text-xs font-mono tracking-tight text-ink/80 hover:text-ink hover:border-ink/20 focus:outline-none focus:ring-2 focus:ring-ink transition-all lowercase"
+      className="inline-flex h-10 items-center justify-center border border-ink bg-paper px-3.5 font-mono text-[11px] tracking-[0.08em] uppercase text-ink hover:bg-paper-card focus:outline-none focus:ring-2 focus:ring-ink transition-colors"
     >
       {t("switcher_label", locale)}
     </a>

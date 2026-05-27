@@ -136,36 +136,4 @@ export function getLocalizedField(record: Company, locale: string, fieldPath: st
   return getByPath(record[fallbackLocale], fieldPath);
 }
 
-export function computeAggregate(scores: Company["scores"]): number | null {
-  const keys = Object.keys(scores) as (keyof typeof scores)[];
-  let sum = 0;
-  let count = 0;
-
-  for (const key of keys) {
-    const val = scores[key]?.score;
-    if (val !== null && val !== undefined) {
-      sum += val;
-      count += 1;
-    }
-  }
-
-  if (count === 0) {
-    return null;
-  }
-
-  return Math.round(sum / count);
-}
-
-export function pinTier(aggregate: number | null): "big" | "mid" | "small" | "faint" {
-  if (aggregate === null) {
-    return "faint";
-  }
-  if (aggregate >= 80) {
-    return "big";
-  }
-  if (aggregate >= 70) {
-    return "mid";
-  }
-  return "small";
-}
 

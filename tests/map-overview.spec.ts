@@ -33,35 +33,13 @@ test.describe("map-overview E2E tests", () => {
     await expect(pins).toHaveCount(13);
   });
 
-  // 13.6 each pin renders as a uniform ink dot
-  test("each pin renders as a uniform ink dot", async ({ page }) => {
+  // company with all-null scores still renders a pin and stays tappable
+  test("null-score company renders a pin and stays tappable", async ({ page }) => {
     await page.goto("/");
-    
-    // Check land-life-company
-    const pinLandLife = page.locator("#pin-land-life-company");
-    await expect(pinLandLife).toHaveCSS("width", "18px");
-    await expect(pinLandLife.locator(".pin-inner")).toHaveClass(/bg-ink/);
 
-    // Check gravity
     const pinGravity = page.locator("#pin-gravity");
-    await expect(pinGravity).toHaveCSS("width", "18px");
-    await expect(pinGravity.locator(".pin-inner")).toHaveClass(/bg-ink/);
+    await expect(pinGravity).toBeVisible();
 
-    // Check brainial
-    const pinBrainial = page.locator("#pin-brainial");
-    await expect(pinBrainial).toHaveCSS("width", "18px");
-    await expect(pinBrainial.locator(".pin-inner")).toHaveClass(/bg-ink/);
-  });
-
-  // 13.7 company with null score renders with the uniform ink dot and stays tappable
-  test("company with null score renders with the uniform ink dot and stays tappable", async ({ page }) => {
-    await page.goto("/");
-    
-    const pinGravity = page.locator("#pin-gravity");
-    await expect(pinGravity).toHaveCSS("width", "18px");
-    await expect(pinGravity.locator(".pin-inner")).toHaveClass(/bg-ink/);
-
-    // Should open peek card on click
     await pinGravity.click();
     const heading = page.locator("#peek-card-title");
     await expect(heading).toHaveText("Gravity B.V.");
@@ -138,13 +116,12 @@ test.describe("map-overview E2E tests", () => {
 
   // 13.13 pentagon renders all five axes including nulls
   test("pentagon renders all five axes including nulls", async ({ page }) => {
-    // Normal company with some nulls
     await page.goto("/?selected=land-life-company");
-    const powerLabel = page.locator("text=power (-)");
-    await expect(powerLabel).toBeVisible();
-
-    const normalLabel = page.locator("text=substance (85)");
-    await expect(normalLabel).toBeVisible();
+    for (const axis of ["SUBSTANCE", "ECOLOGY", "POWER", "EMBEDDEDNESS", "POSTURE"]) {
+      await expect(page.locator(`svg text:text-is("${axis}")`)).toBeVisible();
+    }
+    // null axis (power) renders the "?" glyph at the center of its spoke
+    await expect(page.locator('svg text:text-is("?")')).toBeVisible();
   });
 
   // 13.14 CTA preserves locale and uses the company slug
@@ -210,8 +187,7 @@ test.describe("map-overview E2E tests", () => {
     // Open land-life-company peek card
     await page.locator("#pin-land-life-company").click();
     
-    // Check distance label under title contains "km"
-    const detail = page.locator(".animate-fade-in");
-    await expect(detail).toContainText("km");
+    // distance is appended to the locality line under the company title
+    await expect(page.locator("#peek-card-title").locator("..").locator("p")).toContainText("km");
   });
 });

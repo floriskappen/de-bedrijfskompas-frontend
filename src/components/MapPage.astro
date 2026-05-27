@@ -1,9 +1,11 @@
 ---
 import type { Company } from "../lib/company-data/types";
 import { t } from "../lib/i18n";
+import { messages } from "../lib/i18n/messages";
 import MapView from "./MapView";
 import PeekCard from "./PeekCard";
 import LanguageSwitcher from "./LanguageSwitcher";
+import BottomHint from "./BottomHint";
 
 interface Props {
   companies: Company[];
@@ -12,28 +14,30 @@ interface Props {
 
 const { companies, locale } = Astro.props;
 
-// Fail the build if MAPBOX_PUBLIC_TOKEN is missing
+// fail the build if MAPBOX_PUBLIC_TOKEN is missing
 const mapboxToken = import.meta.env.MAPBOX_PUBLIC_TOKEN || process.env.MAPBOX_PUBLIC_TOKEN;
 if (!mapboxToken) {
   throw new Error("MAPBOX_PUBLIC_TOKEN is required to build the application.");
 }
+
+const hintText = messages[locale].hint_template.replace("{n}", String(companies.length));
 ---
 
-<div class="relative w-screen h-screen overflow-hidden bg-paper-warm flex flex-col">
-  <!-- Map Widget -->
+<div class="relative w-screen h-screen overflow-hidden bg-paper flex flex-col">
+  <!-- map widget -->
   <div class="absolute inset-0 z-0">
     <MapView client:only="react" companies={companies} mapboxToken={mapboxToken} />
   </div>
 
-  <!-- Quiet Empty State Overlay -->
+  <!-- quiet empty state overlay -->
   {
     companies.length === 0 && (
-      <div 
-        id="empty-state-overlay" 
-        class="absolute inset-0 z-10 flex items-center justify-center bg-paper-warm/80 pointer-events-none"
+      <div
+        id="empty-state-overlay"
+        class="absolute inset-0 z-10 flex items-center justify-center bg-paper/80 pointer-events-none"
       >
-        <div class="p-6 bg-paper-card border border-ink/10 rounded-lg shadow-sm text-center pointer-events-auto">
-          <p class="text-sm font-mono tracking-tight text-ink/75 lowercase">
+        <div class="p-6 bg-paper-card border border-ink text-center pointer-events-auto">
+          <p class="font-mono text-[11px] tracking-[0.08em] uppercase text-ink-soft">
             {t("empty_state", locale)}
           </p>
         </div>
@@ -41,12 +45,28 @@ if (!mapboxToken) {
     )
   }
 
-  <!-- Language Switcher overlay -->
+  <!-- top-right filters pill (inert) -->
+  <button
+    id="filters-pill"
+    type="button"
+    aria-label={t("filters", locale)}
+    class="absolute top-4 right-28 z-20 inline-flex h-10 items-center gap-2 border border-ink bg-paper px-3.5 font-mono text-[11px] tracking-[0.08em] uppercase text-ink hover:bg-paper-card cursor-default"
+  >
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+    </svg>
+    {t("filters", locale)}
+  </button>
+
+  <!-- language switcher overlay -->
   <div class="absolute top-4 right-4 z-20">
     <LanguageSwitcher client:load locale={locale} />
   </div>
 
-  <!-- Peek Card Overlay -->
+  <!-- bottom hint (hides when a pin is selected) -->
+  {companies.length > 0 && <BottomHint client:load text={hintText} />}
+
+  <!-- peek card overlay -->
   <div class="absolute bottom-0 inset-x-0 z-20 pointer-events-none">
     <PeekCard client:load companies={companies} locale={locale} />
   </div>

@@ -2,12 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Company } from "../lib/company-data/types";
-import { computeAggregate, pinTier } from "../lib/company-data";
 
 interface MapViewProps {
   companies: Company[];
   mapboxToken: string;
 }
+
+const PIN_INNER_CLASS =
+  "w-[12px] h-[12px] rounded-full bg-ink border-[1.5px] border-paper shadow-[0_0_0_5px_rgba(31,27,22,0.07)]";
 
 export default function MapView({ companies, mapboxToken }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -95,10 +97,10 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         el.setAttribute("data-company-id", company.company_id);
         el.id = `pin-${company.company_id}`;
 
-        el.className = "absolute w-[18px] h-[18px]";
+        el.className = "absolute";
 
         const innerEl = document.createElement("div");
-        innerEl.className = "w-full h-full rounded-full border border-paper-warm cursor-pointer transition-all duration-200 pin-inner bg-ink shadow-[0_0_0_4px_rgba(28,25,23,0.15)]";
+        innerEl.className = `${PIN_INNER_CLASS} cursor-pointer transition-all duration-200 pin-inner`;
 
         el.appendChild(innerEl);
 
@@ -185,11 +187,8 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
       el.setAttribute("data-company-id", company.company_id);
       el.id = `pin-${company.company_id}`;
 
-      el.style.width = "18px";
-      el.style.height = "18px";
-
       const innerEl = document.createElement("div");
-      innerEl.className = "w-full h-full rounded-full border border-paper-warm cursor-pointer transition-all duration-200 pin-inner bg-ink shadow-[0_0_0_4px_rgba(28,25,23,0.15)]";
+      innerEl.className = `${PIN_INNER_CLASS} cursor-pointer transition-all duration-200 pin-inner`;
 
       el.appendChild(innerEl);
 
@@ -276,10 +275,10 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         const innerEl = el.querySelector(".pin-inner");
         if (innerEl) {
           if (company.company_id === selectedId) {
-            innerEl.classList.add("ring-2", "ring-offset-2", "ring-ink", "scale-110");
+            innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
             el.classList.add("z-50");
           } else {
-            innerEl.classList.remove("ring-2", "ring-offset-2", "ring-ink", "scale-110");
+            innerEl.classList.remove("ring-2", "ring-offset-2", "ring-red", "scale-110");
             el.classList.remove("z-50");
           }
         }
@@ -294,7 +293,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
       <button
         id="geolocate-button"
         onClick={handleGeolocate}
-        className="absolute bottom-6 right-6 z-10 flex items-center justify-center w-12 h-12 rounded-full bg-paper-warm text-ink border border-ink shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-paper-card active:scale-95 transition-all cursor-pointer"
+        className="absolute bottom-6 right-6 z-10 flex items-center justify-center w-10 h-10 bg-paper/85 text-ink-soft border border-ink/25 hover:bg-paper hover:text-ink hover:border-ink/40 active:scale-95 transition-all cursor-pointer"
         aria-label="get current location"
       >
         <svg
@@ -305,7 +304,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="w-6 h-6"
+          className="w-5 h-5"
         >
           <circle cx="12" cy="12" r="10" />
           <circle cx="12" cy="12" r="3" />

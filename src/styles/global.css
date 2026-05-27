@@ -1,17 +1,80 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @theme {
-  --color-paper-warm: #fbfaf6;
-  --color-paper-card: #f5f3e9;
-  --color-ink: #1c1917;
-  --color-brand-red: #b91c1c;
-  --color-faint: #a8a29e;
-  
-  --font-sans: "Outfit", "Inter", system-ui, sans-serif;
+  /* paper palette */
+  --color-paper: #f1ece0;
+  --color-paper-warm: #ece4d2;
+  --color-paper-deep: #e4dbc4;
+  --color-paper-card: #f8f3e6;
+
+  /* ink scale */
+  --color-ink: #1f1b16;
+  --color-ink-soft: #4a4239;
+  --color-ink-quiet: #8a8170;
+  --color-ink-faint: #b8ae99;
+
+  /* single accent */
+  --color-red: #b84a39;
+  --color-red-soft: #ebd4cc;
+  --color-red-dark: #8a3528;
+
+  /* legacy aliases so existing class names keep compiling */
+  --color-brand-red: #b84a39;
+  --color-faint: #b8ae99;
+
+  --font-sans: "Archivo", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+html,
 body {
-  background-color: var(--color-paper-warm);
+  margin: 0;
+  background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.018em;
+  line-height: 1.32;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  text-transform: lowercase;
+}
+
+/* user agent forces text-transform:none on form controls — let body lowercase reach them */
+button,
+input,
+textarea,
+select {
+  text-transform: inherit;
+  font-family: inherit;
+  letter-spacing: inherit;
+}
+
+/* mono utility marks always opt back in to uppercase + tracking */
+.mono-mark,
+.font-mono,
+code,
+kbd {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+::selection {
+  background: var(--color-red);
+  color: var(--color-paper);
+}
+
+/* never italic — recast emphasis as weight */
+i,
+em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* paper-grain texture utility for sheets/cards */
+.paper-grain {
+  background-image: url("/paper-grain-soft.svg");
+  background-size: 600px 600px;
 }

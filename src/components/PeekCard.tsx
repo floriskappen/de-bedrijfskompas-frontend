@@ -9,17 +9,22 @@ interface PeekCardProps {
   locale: "nl" | "en";
 }
 
-function haversineDistance(coords1: { lat: number; lng: number }, coords2: { lat: number; lng: number }): number {
+function haversineDistance(
+  coords1: { lat: number; lng: number },
+  coords2: { lat: number; lng: number }
+): number {
   const toRad = (x: number) => (x * Math.PI) / 180;
-  const R = 6371; // Earth's mean radius in km
+  const R = 6371;
 
   const dLat = toRad(coords2.lat - coords1.lat);
   const dLng = toRad(coords2.lng - coords1.lng);
 
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(coords1.lat)) * Math.cos(toRad(coords2.lat)) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    Math.cos(toRad(coords1.lat)) *
+      Math.cos(toRad(coords2.lat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
@@ -30,35 +35,31 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    // Read initial from URL on mount
     const searchParams = new URLSearchParams(window.location.search);
     const initialSelected = searchParams.get("selected");
     if (initialSelected && companies.some((c) => c.company_id === initialSelected)) {
       setSelectedId(initialSelected);
     }
 
-    // Listen to selection-changed events
     const handleSelectionChange = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const id = customEvent.detail?.companyId;
+      const id = (e as CustomEvent).detail?.companyId;
       setSelectedId(id);
     };
 
-    // Keyboard Escape listener
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         const url = new URL(window.location.href);
         url.searchParams.delete("selected");
         window.history.pushState({}, "", url.toString());
         setSelectedId(null);
-        window.dispatchEvent(new CustomEvent("selection-changed", { detail: { companyId: null } }));
+        window.dispatchEvent(
+          new CustomEvent("selection-changed", { detail: { companyId: null } })
+        );
       }
     };
 
-    // Listen to user-location-changed events
     const handleUserLocationChange = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      setUserLoc(customEvent.detail);
+      setUserLoc((e as CustomEvent).detail);
     };
 
     window.addEventListener("selection-changed", handleSelectionChange);
@@ -78,80 +79,84 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
 
   const city = company.address?.city || t("address_fallback", locale);
   const tagline = getLocalizedField(company, locale, "tagline") || t("tagline_fallback", locale);
-  
-  // Compute distance in km
-  const distance = (userLoc && company.latlng)
-    ? haversineDistance(userLoc, company.latlng).toFixed(1)
-    : null;
-  
-  // CTA URL: /<slug>/ on nl, /en/<slug>/ on en
-  const ctaUrl = locale === "en" ? `/en/${company.company_id}/` : `/${company.company_id}/`;
 
-  const handleClose = () => {
-    // Update URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("selected");
-    window.history.pushState({}, "", url.toString());
-    
-    // Set local state & notify MapView
-    setSelectedId(null);
-    window.dispatchEvent(new CustomEvent("selection-changed", { detail: { companyId: null } }));
-  };
+  const distance =
+    userLoc && company.latlng
+      ? haversineDistance(userLoc, company.latlng).toFixed(1)
+      : null;
+
+  const ctaUrl = locale === "en" ? `/en/${company.company_id}/` : `/${company.company_id}/`;
+  const monogram = (company.name || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div 
-      className="w-full max-w-lg mx-auto bg-paper-card border-t border-x border-ink/10 rounded-t-2xl shadow-xl p-6 pointer-events-auto transform translate-y-0 transition-transform duration-300 ease-out"
+    <div
+      className="w-full max-w-lg mx-auto bg-paper-card paper-grain border-t border-x border-ink/15 shadow-[0_-8px_24px_rgba(31,27,22,0.10)] px-5 pt-2.5 pb-9 pointer-events-auto"
       style={{ contentVisibility: "auto" }}
     >
-      {/* Drag handle & close button */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h2 id="peek-card-title" className="text-xl font-bold tracking-tight text-ink lowercase">
+      {/* drag handle */}
+      <div className="mx-auto mb-3.5 h-1 w-10 rounded-sm bg-ink/20" />
+
+      {/* header row: monogram + name + locality/distance */}
+      <div className="mb-3.5 flex items-center gap-3">
+        <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
+          {monogram}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2
+            id="peek-card-title"
+            className="font-sans text-[26px] leading-none tracking-tight text-ink normal-case"
+          >
             {company.name}
           </h2>
-          <p className="text-xs font-mono text-ink/60 lowercase mt-0.5 animate-fade-in">
-            {city}{distance !== null && ` • ${distance} km`}
+          <p className="mt-1 font-sans text-[12px] text-ink-quiet">
+            {city}
+            {distance !== null && ` · ${distance} km`}
           </p>
         </div>
-        <button
-          onClick={handleClose}
-          className="p-1 rounded-full hover:bg-ink/5 text-ink/40 hover:text-ink/80 focus:outline-none focus:ring-2 focus:ring-ink"
-          aria-label="close peek card"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
 
-      {/* Tagline */}
-      <p className="text-sm text-ink/80 lowercase leading-relaxed mb-5">
-        {tagline}
-      </p>
+      {/* "in het echt" callout */}
+      <div className="mb-3.5 bg-red-soft px-3.5 py-3">
+        <div className="mb-1 font-mono text-[9.5px] tracking-[0.15em] uppercase text-red-dark">
+          {t("in_het_echt", locale)}
+        </div>
+        <div className="font-sans text-[16px] leading-snug text-ink">{tagline}</div>
+      </div>
 
-      {/* Pentagon Visualization */}
-      <div className="mb-6">
+      {/* pentagon */}
+      <div className="flex justify-center pt-0.5 pb-4">
         <Pentagon scores={company.scores} />
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        {/* Primary CTA */}
+      {/* CTA + bookmark */}
+      <div className="flex gap-2">
         <a
           href={ctaUrl}
-          className="flex-1 bg-ink text-paper-warm text-sm font-medium py-3 px-4 rounded-xl text-center hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ink lowercase transition-all"
+          className="flex h-12 flex-1 items-center justify-center gap-2 bg-ink px-4 font-sans text-[14px] font-medium tracking-[0.01em] text-paper hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ink transition-opacity"
         >
           {t("cta", locale)}
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path
+              d="M3 7h8m-3-3l3 3-3 3"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </a>
-
-        {/* Secondary Bookmark Action (Inert) */}
         <button
-          className="p-3 bg-ink/5 hover:bg-ink/10 text-ink/70 rounded-xl focus:outline-none focus:ring-2 focus:ring-ink"
+          className="flex h-12 w-12 items-center justify-center border border-ink/20 bg-transparent text-ink hover:bg-ink/5 focus:outline-none focus:ring-2 focus:ring-ink"
           aria-label={t("bookmark_label", locale)}
           type="button"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path
+              d="M9 2l2.09 4.26L16 7l-3.5 3.4.83 4.6L9 13l-4.33 2L5.5 10.4 2 7l4.91-.74L9 2z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
       </div>

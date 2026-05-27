@@ -8,6 +8,9 @@ export const messages = {
     tagline_fallback: "geen beschrijving beschikbaar",
     address_fallback: "onbekende locatie",
     coming_soon: "binnenkort beschikbaar",
+    filters: "filters",
+    in_het_echt: "in het echt",
+    hint_template: "{n} bedrijven in beeld · tik een pin",
   },
   en: {
     title: "de bedrijfskompas",
@@ -18,5 +21,8 @@ export const messages = {
     tagline_fallback: "no description available",
     address_fallback: "unknown location",
     coming_soon: "coming soon",
+    filters: "filters",
+    in_het_echt: "in real life",
+    hint_template: "{n} companies in view · tap a pin",
   },
 } as const;
