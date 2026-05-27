@@ -4,12 +4,13 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro build",
+    "dev": "node scripts/fetch-companies.mjs --skip-if-exists && astro dev",
+    "start": "node scripts/fetch-companies.mjs --skip-if-exists && astro dev",
+    "build": "node scripts/fetch-companies.mjs && astro build",
     "preview": "astro preview",
-    "test": "vitest run",
-    "test:e2e": "playwright test",
+    "fetch:data": "node scripts/fetch-companies.mjs --force",
+    "test": "node scripts/fetch-companies.mjs --skip-if-exists && vitest run",
+    "test:e2e": "node scripts/fetch-companies.mjs --skip-if-exists && playwright test",
     "astro": "astro"
   },
   "dependencies": {

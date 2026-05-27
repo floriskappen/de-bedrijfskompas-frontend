@@ -2,6 +2,9 @@
 dist/
 .astro/
 
+# fetched data (pulled from pipeline releases at build time)
+src/data/companies.json
+
 # dependencies
 node_modules/
 
