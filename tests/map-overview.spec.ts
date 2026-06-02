@@ -11,15 +11,20 @@ test.describe("map-overview E2E tests", () => {
 
   const setZoom = async (page: any, zoomVal: number) => {
     await page.waitForFunction(() => typeof (window as any).setTestZoom === "function");
-    await page.evaluate((z) => (window as any).setTestZoom(z), zoomVal);
+    await page.evaluate((z: number) => (window as any).setTestZoom(z), zoomVal);
   };
 
   const setCenterAndZoom = async (page: any, lng: number, lat: number, zoomVal: number) => {
     await page.waitForFunction(() => typeof (window as any).setTestCenterAndZoom === "function");
     await page.evaluate(
-      ({ lng, lat, z }) => (window as any).setTestCenterAndZoom(lng, lat, z),
+      ({ lng, lat, z }: { lng: number; lat: number; z: number }) => (window as any).setTestCenterAndZoom(lng, lat, z),
       { lng, lat, z: zoomVal }
     );
+  };
+
+  const setTestFilters = async (page: any, filters: any) => {
+    await page.waitForFunction(() => typeof (window as any).setTestFilters === "function");
+    await page.evaluate((nextFilters: any) => (window as any).setTestFilters(nextFilters), filters);
   };
 
   const getRevealState = async (page: any) => {
@@ -51,16 +56,16 @@ test.describe("map-overview E2E tests", () => {
   test("dutch route at root", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle("de bedrijfskompas");
-    const switcher = page.locator("#language-switcher");
-    await expect(switcher).toHaveText("english");
+    await expect(page.locator("#filters-button")).toBeVisible();
+    await expect(page.locator("#language-switcher")).toHaveCount(0);
   });
 
   // 13.2 english route under /en/
   test("english route under /en/", async ({ page }) => {
     await page.goto("/en/");
     await expect(page).toHaveTitle("de bedrijfskompas");
-    const switcher = page.locator("#language-switcher");
-    await expect(switcher).toHaveText("nederlands");
+    await expect(page.locator("#filters-button")).toBeVisible();
+    await expect(page.locator("#language-switcher")).toHaveCount(0);
   });
 
   // Scenario: First load reveals from paper
@@ -105,16 +110,17 @@ test.describe("map-overview E2E tests", () => {
   });
 
   // 13.3 auto-fit on cold load & 13.5 each renderable company has exactly one pin
-  test("each renderable company has exactly one pin", async ({ page }) => {
+  test("every matching renderable company has one badge pin", async ({ page }) => {
     await page.goto("/");
     await setZoom(page, 16);
     // We have 13 valid companies in companies.json (after dropping 4 invalid ones)
     const pins = page.locator("[data-company-id]");
     await expect(pins).toHaveCount(13);
+    await expect(pins.first().locator("[data-score-badge]")).toBeVisible();
   });
 
   // company with all-null scores still renders a pin and stays tappable
-  test("null-score company renders a pin and stays tappable", async ({ page }) => {
+  test("null-score company is still tappable", async ({ page }) => {
     await page.goto("/");
     await setCenterAndZoom(page, 5.38085615, 52.15584731, 16);
 
@@ -124,6 +130,29 @@ test.describe("map-overview E2E tests", () => {
     await pinGravity.click();
     const heading = page.locator("#peek-card-title");
     await expect(heading).toHaveText("Gravity B.V.");
+  });
+
+  test("collocated score badges fan out", async ({ page }) => {
+    await page.goto("/");
+    await setCenterAndZoom(page, 5.38085615, 52.15584731, 16);
+
+    const gravityBox = await page.locator("#pin-gravity").boundingBox();
+    const amuletBox = await page.locator("#pin-amulet").boundingBox();
+
+    expect(gravityBox).not.toBeNull();
+    expect(amuletBox).not.toBeNull();
+    expect(`${Math.round(gravityBox!.x)},${Math.round(gravityBox!.y)}`).not.toBe(
+      `${Math.round(amuletBox!.x)},${Math.round(amuletBox!.y)}`
+    );
+  });
+
+  test("selected score badge gets red halo ring", async ({ page }) => {
+    await page.goto("/");
+    await setCenterAndZoom(page, 4.92268301, 52.36276833, 16);
+
+    await page.locator("#pin-land-life-company").click();
+
+    await expect(page.locator("#pin-land-life-company .pin-inner")).toHaveClass(/ring-red/);
   });
 
   // 13.8 selecting a pin updates the URL and opens the peek card
@@ -205,7 +234,7 @@ test.describe("map-overview E2E tests", () => {
   // 13.13 pentagon renders all five axes including nulls
   test("pentagon renders all five axes including nulls", async ({ page }) => {
     await page.goto("/?selected=land-life-company");
-    for (const axis of ["SUBSTANCE", "ECOLOGY", "POWER", "EMBEDDEDNESS", "POSTURE"]) {
+    for (const axis of ["INHOUD", "ECOLOGIE", "MACHT", "VERANKERING", "HOUDING"]) {
       await expect(page.locator(`svg text:text-is("${axis}")`)).toBeVisible();
     }
     // null axis (power) renders the "?" glyph at the center of its spoke
@@ -222,23 +251,14 @@ test.describe("map-overview E2E tests", () => {
     await expect(page.locator("h1")).toHaveText("land life company b.v.");
   });
 
-  // 13.15 switcher preserves selection across locales
-  test("switcher preserves selection across locales", async ({ page }) => {
+  test("map chrome omits language switcher while routes stay localized", async ({ page }) => {
     await page.goto("/?selected=land-life-company");
-    const switcher = page.locator("#language-switcher");
-    await expect(switcher).not.toHaveAttribute("href", "#");
-    await switcher.click();
-    await expect(page).toHaveURL(/.*\/en\/\?selected=land-life-company.*/);
-    await expect(page.locator("#peek-card-title")).toHaveText("Land Life Company B.V.");
-  });
+    await expect(page.locator("#language-switcher")).toHaveCount(0);
+    await expect(page.locator("text=een winstgerichte onderneming die door bedrijven wordt ingehuurd om grootschalige bossen aan te planten die koolstof uit de lucht verwijderen.")).toBeVisible();
 
-  // 13.16 switcher toggles back to default
-  test("switcher toggles back to default", async ({ page }) => {
-    await page.goto("/en/");
-    const switcher = page.locator("#language-switcher");
-    await expect(switcher).not.toHaveAttribute("href", "#");
-    await switcher.click();
-    await expect(page).toHaveURL(/\/$/);
+    await page.goto("/en/?selected=land-life-company");
+    await expect(page.locator("#language-switcher")).toHaveCount(0);
+    await expect(page.locator("text=a for-profit company that is hired by businesses to plant large-scale forests that remove carbon from the air.")).toBeVisible();
   });
 
   // 13.17 empty collection still renders the map
@@ -281,7 +301,7 @@ test.describe("map-overview E2E tests", () => {
   });
 
   // Scenario: Dynamic clustering based on zoom
-  test("dynamic clustering based on zoom", async ({ page }) => {
+  test("dynamic clustering counts matching companies", async ({ page }) => {
     await page.goto("/");
     await setZoom(page, 10);
     await page.waitForTimeout(500);
@@ -302,7 +322,7 @@ test.describe("map-overview E2E tests", () => {
   });
 
   // Scenario: Clicking a cluster zooms in
-  test("clicking a cluster zooms in", async ({ page }) => {
+  test("clicking filtered cluster zooms in", async ({ page }) => {
     await page.goto("/");
     await setZoom(page, 10);
     await page.waitForTimeout(500);
@@ -319,5 +339,147 @@ test.describe("map-overview E2E tests", () => {
     await expect.poll(async () => {
       return await page.locator("[data-company-id]").count();
     }).toBeGreaterThan(pinsCountBefore);
+  });
+
+  test("filtering clears hidden selection", async ({ page }) => {
+    await page.goto("/?selected=gravity");
+    await expect(page.locator("#peek-card-title")).toHaveText("Gravity B.V.");
+
+    await setTestFilters(page, { axisMinimums: { power: 5 } });
+
+    await expect(page).not.toHaveURL(/.*selected=.*/);
+    await expect(page.locator("#peek-card-title")).toHaveCount(0);
+  });
+
+  test("icon-only filter button opens panel", async ({ page }) => {
+    await page.goto("/");
+
+    const button = page.locator("#filters-button");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveText("");
+    await button.click();
+
+    await expect(page.locator("#filters-panel")).toBeVisible();
+    await expect(page).not.toHaveURL(/.*filters/);
+  });
+
+  test("reset clears active filters", async ({ page }) => {
+    await page.goto("/");
+    await setTestFilters(page, { axisMinimums: { power: 5 }, selectedTags: ["commercial"] });
+    await expect(page.locator("#filters-active-count")).toHaveText("2");
+
+    await page.locator("#filters-button").click();
+
+    await expect(page.locator('[data-tag-filter="commercial"]')).toHaveAttribute("aria-pressed", "true");
+    await page.locator("#filters-reset").click();
+
+    await expect(page.locator('input[aria-label="macht minimum"]')).toHaveValue("0");
+    await expect(page.locator('[data-tag-filter="commercial"]')).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#filters-active-count")).toHaveCount(0);
+  });
+
+  test("reduced motion skips panel animation", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    const animationName = await page.locator("#filters-panel").evaluate((el) => getComputedStyle(el).animationName);
+    expect(animationName).toBe("none");
+  });
+
+  test("histogram includes unknown bucket", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    await expect(page.locator('[data-axis="power"][data-bucket="unknown"]')).toBeVisible();
+  });
+
+  test("histogram buckets aggregate by tens", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    await expect(page.locator('[data-axis="ecology"][data-bucket="50"]')).toBeVisible();
+    await expect(page.locator('[data-axis="ecology"][data-bucket="60"]')).toBeVisible();
+    await expect(page.locator('[data-axis="ecology"][data-bucket="70"]')).toBeVisible();
+  });
+
+  test("bucket threshold aligns with visible bucket labels", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    await page.locator('input[aria-label="ecologie minimum"]').fill("50");
+
+    await expect(page.locator('input[aria-label="ecologie minimum"]')).toHaveValue("50");
+    await expect(page.locator('[data-axis-filter="ecology"]')).toContainText("min 50");
+  });
+
+  test("histogram bars do not grow when filtering removes companies", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    const bucket = page.locator('[data-axis="ecology"][data-bucket="60"] > div').first();
+    const before = await bucket.evaluate((el) => el.getBoundingClientRect().height);
+    await setTestFilters(page, { axisMinimums: { substance: 70 } });
+    const after = await bucket.evaluate((el) => el.getBoundingClientRect().height);
+
+    expect(after).toBeLessThanOrEqual(before);
+  });
+
+  test("tag counts update with active filters", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    // data carries capability tags, so chips render rather than the empty state
+    await expect(page.locator("#tags-empty-state")).toHaveCount(0);
+    const commercial = page.locator('[data-tag-filter="commercial"]');
+    await expect(commercial).toBeVisible();
+
+    await setTestFilters(page, { selectedTags: ["commercial"] });
+    await expect(commercial).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
+  });
+
+  test("no tags data shows empty tag section", async ({ page }) => {
+    await page.goto("/test-no-tags");
+    await page.locator("#filters-button").click();
+
+    await expect(page.locator("#tags-empty-state")).toHaveText("nog geen tags in de huidige data");
+    await expect(page.locator("[data-tag-filter]")).toHaveCount(0);
+  });
+
+  test("filter panel layers above an open peek card", async ({ page }) => {
+    await page.goto("/?selected=2daysmood");
+    await page.waitForSelector("#peek-card");
+    await page.locator("#filters-button").click();
+
+    const panel = page.locator("#filters-panel");
+    await expect(panel).toBeVisible();
+    // the panel must paint above the peek card, not behind it
+    const panelOnTop = await page.evaluate(() => {
+      const p = document.getElementById("filters-panel");
+      if (!p) return false;
+      const r = p.getBoundingClientRect();
+      const el = document.elementFromPoint(r.left + r.width / 2, r.top + 8);
+      return !!el && !!el.closest("#filters-panel");
+    });
+    expect(panelOnTop).toBe(true);
+  });
+
+  test("filter panel header stays reachable while scrolling", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    const panel = page.locator("#filters-panel");
+    await panel.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+
+    // reset/close controls remain on top of the scrolled content
+    const closeReachable = await page.evaluate(() => {
+      const reset = document.getElementById("filters-reset");
+      if (!reset) return false;
+      const r = reset.getBoundingClientRect();
+      const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return el === reset || (!!el && reset.contains(el));
+    });
+    expect(closeReachable).toBe(true);
   });
 });

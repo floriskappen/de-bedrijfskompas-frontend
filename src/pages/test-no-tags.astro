@@ -1,0 +1,15 @@
+---
+import Layout from "../layouts/Layout.astro";
+import MapPage from "../components/MapPage.astro";
+import { getAllCompanies } from "../lib/company-data";
+import { t } from "../lib/i18n";
+
+// Fixture for the "no tags data" filter scenario: real companies with their
+// capability tags stripped, so the tag section must fall back to its empty state.
+const locale = "nl";
+const companies = getAllCompanies().map((company) => ({ ...company, capability_tags: [] }));
+---
+
+<Layout title={t("title", locale)}>
+  <MapPage companies={companies} locale={locale} />
+</Layout>

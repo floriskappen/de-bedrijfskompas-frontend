@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validate, getAllCompanies, getCompanyById, getLocalizedField } from "./index";
+import { getCompanyTags } from "./filters";
 import type { Company } from "./types";
 
 describe("company-data capability", () => {
@@ -56,6 +57,54 @@ describe("company-data capability", () => {
     const result = validate(record);
     expect(result.ok).toBe(false);
     expect(result.errors).toContain("missing required field: company_id");
+  });
+
+  it("missing tags behave as empty tags", () => {
+    const record = createValidTemplate();
+    const result = validate(record);
+
+    expect(result.ok).toBe(true);
+    expect(getCompanyTags(record)).toEqual([]);
+  });
+
+  it("known tags are preserved", () => {
+    const record = createValidTemplate();
+    record.capability_tags = [
+      { family: "software-engineering", prominence: "core" },
+      { family: "commercial", prominence: "supporting" },
+    ];
+
+    const result = validate(record);
+
+    expect(result.ok).toBe(true);
+    expect(getCompanyTags(record)).toEqual(["software-engineering", "commercial"]);
+  });
+
+  it("unknown tags are rejected", () => {
+    const record = createValidTemplate();
+    record.capability_tags = [
+      { family: "software-engineering", prominence: "core" },
+      { family: "unknown-tag", prominence: "supporting" },
+    ];
+
+    const result = validate(record);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("invalid capability tag family: unknown-tag");
+  });
+
+  it("tags are locale-neutral", () => {
+    const record = createValidTemplate();
+    record.capability_tags = [
+      { family: "commercial", prominence: "core" },
+      { family: "education-training", prominence: "supporting" },
+    ];
+
+    expect(validate(record).ok).toBe(true);
+    expect(getCompanyTags(record)).toEqual(["commercial", "education-training"]);
+    expect(getLocalizedField(record as Company, "nl", "tagline")).toBe("een test tagline.");
+    expect(getLocalizedField(record as Company, "en", "tagline")).toBe("a test tagline.");
+    expect(getCompanyTags(record)).toEqual(["commercial", "education-training"]);
   });
 
   // 12.3 null score is preserved, not coerced

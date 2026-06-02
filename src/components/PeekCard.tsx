@@ -247,7 +247,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
 
       {/* pentagon */}
       <div className="flex justify-center pt-0.5 pb-4">
-        <Pentagon scores={company.scores} />
+        <Pentagon scores={company.scores} locale={locale} />
       </div>
 
       {/* CTA + bookmark */}

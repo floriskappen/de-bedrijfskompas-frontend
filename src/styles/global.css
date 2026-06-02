@@ -220,6 +220,19 @@ em {
   animation: peek-slide-out 110ms steps(3, end) both;
 }
 
+@keyframes filter-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.filter-sheet {
+  animation: filter-sheet-in 180ms steps(5, end) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .map-reveal-surface {
     isolation: auto;
@@ -232,7 +245,8 @@ em {
   }
 
   .peek-card-enter,
-  .peek-card-exit {
+  .peek-card-exit,
+  .filter-sheet {
     animation: none;
   }
 }

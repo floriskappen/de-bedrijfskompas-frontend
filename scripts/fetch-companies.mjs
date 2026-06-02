@@ -12,6 +12,10 @@ const PROJECT_ROOT = resolve(__dirname, "..");
 const DEST = resolve(PROJECT_ROOT, "src/data/companies.json");
 const TMP = `${DEST}.tmp`;
 
+// Records the release tag the cached asset came from, so `--skip-if-exists`
+// can tell a current cache apart from a stale one.
+const releaseMetaPath = (dest) => `${dest}.release`;
+
 export async function fetchCompanies({
   argv = [],
   env = process.env,
@@ -24,18 +28,42 @@ export async function fetchCompanies({
 } = {}) {
   const force = argv.includes("--force");
   const skipIfExists = argv.includes("--skip-if-exists");
-
-  if (skipIfExists && !force && existsSync(dest) && statSync(dest).size > 0) {
-    log(`[fetch-companies] using cached ${dest}`);
-    return { skipped: true };
-  }
+  const meta = releaseMetaPath(dest);
 
   mkdirSync(dirname(dest), { recursive: true });
 
+  const cachedAvailable = existsSync(dest) && statSync(dest).size > 0;
   const ghAvailable = isGhAuthenticated(runGh);
   const token = env.GH_TOKEN || env.GITHUB_TOKEN;
+  const haveAuth = ghAvailable || token;
 
-  if (!ghAvailable && !token) {
+  // Tag-aware skip: keep the cache only when it matches the latest release.
+  // The check fetches release metadata, not the asset, so it stays cheap.
+  if (skipIfExists && !force && cachedAvailable) {
+    if (!haveAuth) {
+      log(`[fetch-companies] using cached ${dest} (no github auth to check for updates)`);
+      return { skipped: true };
+    }
+    try {
+      const { tag, download } = await resolveLatest({ ghAvailable, runGh, token, httpFetch, log });
+      const cachedTag = readCachedTag(meta);
+      if (cachedTag && cachedTag === tag) {
+        log(`[fetch-companies] cached ${dest} is up to date (release ${tag})`);
+        return { skipped: true, releaseTag: tag };
+      }
+      log(`[fetch-companies] refetching: cached release ${cachedTag ?? "<unknown>"} → latest ${tag}`);
+      await writeFetched({ download, tmp, dest, meta, tag, log });
+      return { skipped: false, releaseTag: tag };
+    } catch (err) {
+      safeUnlink(tmp);
+      // The update check failed (offline, transient, bad asset) — the cache is
+      // still usable, so keep serving it rather than breaking dev/test.
+      errorLog(`[fetch-companies] could not refresh, using cached ${dest}: ${err.message}`);
+      return { skipped: true };
+    }
+  }
+
+  if (!haveAuth) {
     errorLog(
       [
         "[fetch-companies] no github auth available.",
@@ -48,15 +76,9 @@ export async function fetchCompanies({
 
   let releaseTag = "<unknown>";
   try {
-    if (ghAvailable) {
-      releaseTag = await fetchWithGh({ runGh, tmp, log });
-    } else {
-      releaseTag = await fetchWithRest({ httpFetch, token, tmp, log });
-    }
-
-    validateDownloaded(tmp, releaseTag);
-    renameSync(tmp, dest);
-    log(`[fetch-companies] wrote ${dest} (release ${releaseTag})`);
+    const { tag, download } = await resolveLatest({ ghAvailable, runGh, token, httpFetch, log });
+    releaseTag = tag;
+    await writeFetched({ download, tmp, dest, meta, tag, log });
     return { skipped: false, releaseTag };
   } catch (err) {
     safeUnlink(tmp);
@@ -78,16 +100,32 @@ function isGhAuthenticated(runGh) {
   return probe.status === 0;
 }
 
-async function fetchWithGh({ runGh, tmp, log }) {
-  log(`[fetch-companies] using gh cli`);
-  const view = runGh([
-    "release", "view", "--repo", REPO, "--json", "tagName",
-  ]);
-  if (view.status !== 0) {
-    throw new Error(`gh release view failed: ${view.stderr?.trim() || "exit " + view.status}`);
-  }
-  const tag = JSON.parse(view.stdout).tagName;
+async function writeFetched({ download, tmp, dest, meta, tag, log }) {
+  await download(tmp);
+  validateDownloaded(tmp, tag);
+  renameSync(tmp, dest);
+  writeCachedTag(meta, tag);
+  log(`[fetch-companies] wrote ${dest} (release ${tag})`);
+}
 
+// Resolves the latest release's tag plus a lazy `download(tmp)` for its asset,
+// so callers can compare tags before paying for the asset transfer.
+async function resolveLatest({ ghAvailable, runGh, token, httpFetch, log }) {
+  if (ghAvailable) {
+    log(`[fetch-companies] using gh cli`);
+    const view = runGh(["release", "view", "--repo", REPO, "--json", "tagName"]);
+    if (view.status !== 0) {
+      throw new Error(`gh release view failed: ${view.stderr?.trim() || "exit " + view.status}`);
+    }
+    const tag = JSON.parse(view.stdout).tagName;
+    return { tag, download: (tmp) => downloadWithGh({ runGh, tmp }) };
+  }
+
+  log(`[fetch-companies] using github rest api`);
+  return resolveLatestWithRest({ httpFetch, token });
+}
+
+function downloadWithGh({ runGh, tmp }) {
   const download = runGh([
     "release", "download",
     "--repo", REPO,
@@ -98,11 +136,9 @@ async function fetchWithGh({ runGh, tmp, log }) {
   if (download.status !== 0) {
     throw new Error(`gh release download failed: ${download.stderr?.trim() || "exit " + download.status}`);
   }
-  return tag;
 }
 
-async function fetchWithRest({ httpFetch, token, tmp, log }) {
-  log(`[fetch-companies] using github rest api`);
+async function resolveLatestWithRest({ httpFetch, token }) {
   const headers = {
     Authorization: `Bearer ${token}`,
     "User-Agent": "de-bedrijfskompas-frontend",
@@ -127,16 +163,36 @@ async function fetchWithRest({ httpFetch, token, tmp, log }) {
     throw new Error(`release ${tag} has no asset named ${ASSET}`);
   }
 
-  const assetRes = await httpFetch(asset.url, {
-    headers: { ...headers, Accept: "application/octet-stream" },
-    redirect: "follow",
-  });
-  if (!assetRes.ok) {
-    throw new Error(`asset download failed: ${assetRes.status} ${assetRes.statusText}`);
+  return {
+    tag,
+    download: async (tmp) => {
+      const assetRes = await httpFetch(asset.url, {
+        headers: { ...headers, Accept: "application/octet-stream" },
+        redirect: "follow",
+      });
+      if (!assetRes.ok) {
+        throw new Error(`asset download failed: ${assetRes.status} ${assetRes.statusText}`);
+      }
+      const buf = Buffer.from(await assetRes.arrayBuffer());
+      writeFileSync(tmp, buf);
+    },
+  };
+}
+
+function readCachedTag(metaPath) {
+  try {
+    return readFileSync(metaPath, "utf8").trim() || null;
+  } catch {
+    return null;
   }
-  const buf = Buffer.from(await assetRes.arrayBuffer());
-  writeFileSync(tmp, buf);
-  return tag;
+}
+
+function writeCachedTag(metaPath, tag) {
+  try {
+    writeFileSync(metaPath, `${tag}\n`);
+  } catch {
+    // Non-fatal: the asset is written; we just lose the staleness hint.
+  }
 }
 
 function validateDownloaded(tmp, releaseTag) {

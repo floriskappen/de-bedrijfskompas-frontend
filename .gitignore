@@ -4,6 +4,7 @@ dist/
 
 # fetched data (pulled from pipeline releases at build time)
 src/data/companies.json
+src/data/companies.json.release
 
 # dependencies
 node_modules/

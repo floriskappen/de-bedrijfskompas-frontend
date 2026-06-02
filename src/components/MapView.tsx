@@ -1,16 +1,47 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Supercluster from "supercluster";
-import type { Company } from "../lib/company-data/types";
+import type { AxisId, Company, TagId } from "../lib/company-data/types";
+import { AXIS_IDS, TAG_IDS } from "../lib/company-data/types";
+import {
+  DEFAULT_AXIS_MINIMUMS,
+  filterCompanies,
+  getCompaniesForAxisFacet,
+  getCompositeScore,
+  getHistogramBuckets,
+  getTagCounts,
+  hasActiveFilters,
+  type CompanyFilters,
+} from "../lib/company-data/filters";
+import { t } from "../lib/i18n";
+import { getAxisLabel, getTagLabel } from "../lib/i18n/labels";
 
 interface MapViewProps {
   companies: Company[];
   mapboxToken: string;
+  locale: "nl" | "en";
 }
 
-const PIN_INNER_CLASS =
-  "w-[12px] h-[12px] rounded-full bg-ink border-[1.5px] border-paper shadow-[0_0_0_5px_rgba(31,27,22,0.07)]";
+const PIN_BADGE_CLASS =
+  "pin-inner flex h-8 min-w-12 items-center justify-center gap-1 border border-paper bg-ink px-2 font-mono text-[11px] font-bold leading-none text-paper shadow-[0_0_0_5px_rgba(31,27,22,0.07)]";
+
+function TagIcon({ tag }: { tag: TagId }) {
+  const index = TAG_IDS.indexOf(tag);
+  const variant = index % 6;
+
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      {variant === 0 && <path d="M5 3 2 7l3 4M9 3l3 4-3 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />}
+      {variant === 1 && <path d="M3 10V6m4 4V3m4 7V5M2 11h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />}
+      {variant === 2 && <path d="M3 4h8v6H3zM5 2v2m4-2v2M5 10v2m4-2v2M1 6h2m8 0h2M1 8h2m8 0h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />}
+      {variant === 3 && <path d="M7 2v10M3 5l4-3 4 3M3 9l4 3 4-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />}
+      {variant === 4 && <path d="M5 2h4M6 2v3l-3 6h8L8 5V2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />}
+      {variant === 5 && <path d="M7 12c3-2 4-5 4-9-3 0-6 1-8 4 0 3 2 5 4 5Zm0 0V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />}
+    </svg>
+  );
+}
 
 // Companies that share an address (e.g. an incubator) collide on the same
 // latlng. Spread collocated pins on a small pixel-space rosette around the
@@ -19,10 +50,10 @@ const PIN_INNER_CLASS =
 // Uses Vogel's sunflower / phyllotaxis spiral: position i sits at radius
 // `scale * sqrt(i + 0.5)` and angle `i * golden_angle`. This keeps nearest
 // neighbours roughly equidistant for any N, so the layout stays non-
-// overlapping whether there are 2 or 50 companies at one point. Scale ~10
-// keeps the minimum neighbour distance above the ~15px pin diameter.
+// overlapping whether there are 2 or 50 companies at one point. Scale ~32
+// keeps the minimum neighbour distance above the wider score badge footprint.
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-const ROSETTE_SCALE_PX = 10;
+const ROSETTE_SCALE_PX = 32;
 function computePinOffsets(
   companies: Company[]
 ): Record<string, [number, number]> {
@@ -51,13 +82,20 @@ function computePinOffsets(
   return offsets;
 }
 
-export default function MapView({ companies, mapboxToken }: MapViewProps) {
+export default function MapView({ companies, mapboxToken, locale }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<{ [id: string]: mapboxgl.Marker }>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [filters, setFilters] = useState<CompanyFilters>({
+    axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
+    selectedTags: [],
+  });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const panelDragRef = useRef<{ startY: number; panelH: number } | null>(null);
 
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
@@ -72,7 +110,35 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
   const [zoom, setZoom] = useState<number>(initialZoom);
   const [supercluster, setSupercluster] = useState<Supercluster | null>(null);
 
-  const pinOffsets = computePinOffsets(companies);
+  const filteredCompanies = useMemo(() => filterCompanies(companies, filters), [companies, filters]);
+  const filteredCompanyIds = useMemo(
+    () => new Set(filteredCompanies.map((company) => company.company_id)),
+    [filteredCompanies]
+  );
+  const companyById = useMemo(
+    () => new Map(companies.map((company) => [company.company_id, company])),
+    [companies]
+  );
+  const pinOffsets = useMemo(() => computePinOffsets(filteredCompanies), [filteredCompanies]);
+  const tagCounts = useMemo(() => getTagCounts(companies, filters), [companies, filters]);
+  const filtersActive = hasActiveFilters(filters);
+  const activeFilterCount = useMemo(
+    () =>
+      filters.selectedTags.length +
+      AXIS_IDS.filter((axis) => (filters.axisMinimums[axis] ?? 0) > 0).length,
+    [filters]
+  );
+  const histogramMaxima = useMemo(
+    () =>
+      AXIS_IDS.reduce(
+        (maxima, axis) => {
+          maxima[axis] = Math.max(1, ...getHistogramBuckets(companies, axis).map((bucket) => bucket.count));
+          return maxima;
+        },
+        {} as Record<AxisId, number>
+      ),
+    [companies]
+  );
 
   // Initialize Supercluster
   useEffect(() => {
@@ -81,8 +147,8 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
       maxZoom: 12,
     });
 
-    const geojsonPoints = companies
-      .filter((c) => c.latlng)
+    const geojsonPoints = filteredCompanies
+      .filter((c): c is Company & { latlng: { lat: number; lng: number } } => Boolean(c.latlng))
       .map((c) => ({
         type: "Feature" as const,
         properties: {
@@ -98,7 +164,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
 
     sc.load(geojsonPoints);
     setSupercluster(sc);
-  }, [companies]);
+  }, [filteredCompanies]);
 
   // Support window hooks for E2E tests
   useEffect(() => {
@@ -115,6 +181,15 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
           mapRef.current.setZoom(z);
           mapRef.current.setCenter([lng, lat]);
         }
+      };
+      (window as any).setTestFilters = (nextFilters: Partial<CompanyFilters>) => {
+        setFilters((current) => ({
+          axisMinimums: {
+            ...current.axisMinimums,
+            ...(nextFilters.axisMinimums ?? {}),
+          },
+          selectedTags: nextFilters.selectedTags ?? current.selectedTags,
+        }));
       };
     }
   }, []);
@@ -298,6 +373,83 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
     window.dispatchEvent(new CustomEvent("selection-changed", { detail: { companyId: id } }));
   };
 
+  useEffect(() => {
+    if (selectedId && !filteredCompanyIds.has(selectedId)) {
+      updateSelection(null);
+    }
+  }, [filteredCompanyIds, selectedId]);
+
+  const updateAxisMinimum = (axis: AxisId, minimum: number) => {
+    setFilters((current) => ({
+      ...current,
+      axisMinimums: {
+        ...current.axisMinimums,
+        [axis]: minimum,
+      },
+    }));
+  };
+
+  const toggleTag = (tag: TagId) => {
+    setFilters((current) => {
+      const selectedTags = current.selectedTags.includes(tag)
+        ? current.selectedTags.filter((selectedTag) => selectedTag !== tag)
+        : [...current.selectedTags, tag];
+
+      return {
+        ...current,
+        selectedTags,
+      };
+    });
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
+      selectedTags: [],
+    });
+  };
+
+  // Drag the panel header down to dismiss it, mirroring the peek card gesture.
+  const onPanelHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!panelRef.current) return;
+    const panelH = panelRef.current.getBoundingClientRect().height;
+    panelDragRef.current = { startY: e.clientY, panelH };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    panelRef.current.style.animation = "none";
+    panelRef.current.style.transition = "none";
+    panelRef.current.style.transform = "translateY(0px)";
+  };
+
+  const onPanelHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = panelDragRef.current;
+    if (!s || !panelRef.current) return;
+    const raw = e.clientY - s.startY;
+    // down: 1:1 tracking. up: stiff rubber-band capped at -20px.
+    const y = raw >= 0 ? raw : Math.max(-20, raw / 6);
+    panelRef.current.style.transform = `translateY(${y}px)`;
+  };
+
+  const onPanelHandlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = panelDragRef.current;
+    if (!s || !panelRef.current) return;
+    const panel = panelRef.current;
+    const raw = e.clientY - s.startY;
+    const shouldClose = raw > s.panelH * 0.3;
+    panelDragRef.current = null;
+    if (shouldClose) {
+      panel.style.transition = "transform 160ms steps(4, end)";
+      const cleanup = () => {
+        panel.removeEventListener("transitionend", cleanup);
+        setIsFilterOpen(false);
+      };
+      panel.addEventListener("transitionend", cleanup);
+      panel.style.transform = `translateY(${s.panelH}px)`;
+    } else {
+      panel.style.transition = "transform 160ms steps(4, end)";
+      panel.style.transform = "translateY(0px)";
+    }
+  };
+
   // Synchronize standard Mapbox markers
   useEffect(() => {
     if (!mapboxgl.supported() || !mapRef.current || !supercluster) return;
@@ -353,8 +505,12 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
           el.setAttribute("data-company-id", companyId);
           el.id = `pin-${companyId}`;
 
+          const company = companyById.get(companyId);
+          const score = company ? getCompositeScore(company) : null;
           const innerEl = document.createElement("div");
-          innerEl.className = `${PIN_INNER_CLASS} cursor-pointer transition-all duration-200 pin-inner`;
+          innerEl.className = `${PIN_BADGE_CLASS} cursor-pointer transition-all duration-200`;
+          innerEl.innerHTML = `<span aria-hidden="true" class="text-[9px] leading-none">✦</span><span>${score === null ? "?" : String(score)}</span>`;
+          innerEl.setAttribute("data-score-badge", score === null ? "unknown" : String(score));
           
           if (companyId === selectedId) {
             innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
@@ -405,7 +561,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
         delete markersRef.current[key];
       }
     });
-  }, [zoom, supercluster, companies, selectedId]);
+  }, [zoom, supercluster, companyById, pinOffsets, selectedId]);
 
   // React to selectedId changes to pan map
   useEffect(() => {
@@ -444,6 +600,7 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
   const fallbackFeatures = !isSupported && supercluster
     ? supercluster.getClusters([-180, -90, 180, 90], Math.round(zoom))
     : [];
+  const selectedTagSet = new Set(filters.selectedTags);
 
   return (
     <div className="relative w-full h-full">
@@ -485,6 +642,8 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
               } else {
                 const [ox, oy] = pinOffsets[companyId] ?? [0, 0];
                 const isSelected = companyId === selectedId;
+                const company = companyById.get(companyId);
+                const score = company ? getCompositeScore(company) : null;
                 return (
                   <div
                     key={`pin-${companyId}`}
@@ -507,10 +666,14 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
                     }}
                   >
                     <div
-                      className={`${PIN_INNER_CLASS} transition-all duration-200 pin-inner ${
+                      data-score-badge={score === null ? "unknown" : score}
+                      className={`${PIN_BADGE_CLASS} transition-all duration-200 ${
                         isSelected ? "ring-2 ring-offset-2 ring-red scale-110" : ""
                       }`}
-                    />
+                    >
+                      <span aria-hidden="true" className="text-[9px] leading-none">✦</span>
+                      <span>{score === null ? "?" : score}</span>
+                    </div>
                   </div>
                 );
               }
@@ -518,7 +681,193 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
           </div>
         )}
       </div>
-      
+
+      {companies.length > 0 && filteredCompanies.length === 0 && (
+        <div
+          id="filtered-empty-state-overlay"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-paper/70 pointer-events-none"
+        >
+          <div className="paper-grain border border-ink bg-paper-card px-5 py-4 text-center">
+            <p className="font-mono text-[10px] text-ink-soft">{t("empty_state", locale)}</p>
+          </div>
+        </div>
+      )}
+
+      <button
+        id="filters-button"
+        type="button"
+        onClick={() => setIsFilterOpen(true)}
+        aria-label={t("filters", locale)}
+        aria-expanded={isFilterOpen}
+        aria-controls="filters-panel"
+        className="absolute top-4 right-4 z-20 inline-flex h-10 w-10 items-center justify-center border border-ink bg-paper/90 text-ink hover:bg-paper-card focus:outline-none focus:ring-2 focus:ring-ink"
+      >
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        {activeFilterCount > 0 && (
+          <span
+            id="filters-active-count"
+            className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-red px-1 font-mono text-[9px] text-paper"
+          >
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {isFilterOpen && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-end bg-ink/10" onClick={() => setIsFilterOpen(false)}>
+          <section
+            ref={panelRef}
+            id="filters-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("filters", locale)}
+            className="filter-sheet paper-grain max-h-[82vh] w-full overflow-y-auto border-t border-ink/20 bg-paper-card px-4 pb-6 shadow-[0_-12px_32px_rgba(31,27,22,0.18)] will-change-transform"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 -mx-4 bg-paper-card px-4 pb-3 border-b border-ink/10">
+              <div
+                className="mx-auto flex h-7 w-20 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
+                onPointerDown={onPanelHandlePointerDown}
+                onPointerMove={onPanelHandlePointerMove}
+                onPointerUp={onPanelHandlePointerUp}
+                onPointerCancel={onPanelHandlePointerUp}
+                aria-label={t("drag_handle", locale)}
+                role="button"
+              >
+                <div className="h-1 w-12 bg-ink/30" />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-mono text-[11px] text-ink">{t("filters", locale)}</h2>
+                  <p className="mt-1 text-[12px] text-ink-quiet">
+                    {filteredCompanies.length}/{companies.length} bedrijven
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="filters-reset"
+                    type="button"
+                    onClick={resetFilters}
+                    disabled={!filtersActive}
+                    className="inline-flex h-9 items-center border border-ink/20 bg-paper px-3 font-mono text-[9px] text-ink disabled:opacity-40"
+                  >
+                    reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOpen(false)}
+                    aria-label="sluit filters"
+                    className="flex h-9 w-9 items-center justify-center border border-ink/20 bg-paper text-ink"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4">
+              {AXIS_IDS.map((axis) => {
+                const facetCompanies = getCompaniesForAxisFacet(companies, filters, axis);
+                const buckets = getHistogramBuckets(facetCompanies, axis);
+                const maxCount = histogramMaxima[axis];
+                const value = filters.axisMinimums[axis] ?? 0;
+
+                return (
+                  <section key={axis} data-axis-filter={axis} className="border border-ink/15 bg-paper/70 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="font-mono text-[9px] text-ink-soft">{getAxisLabel(axis, locale)}</h3>
+                      <span className="font-mono text-[9px] text-red-dark">{value === 0 ? "geen voorkeur" : `min ${value}`}</span>
+                    </div>
+                    <div className="mb-2 grid grid-cols-[1.4rem_1fr] items-end gap-2">
+                      <div className="flex h-12 flex-col items-center justify-end gap-1" aria-label={`${getAxisLabel(axis, locale)} onbekend`}>
+                        {buckets.filter((bucket) => bucket.id === "unknown").map((bucket) => (
+                          <div key={bucket.id} data-axis={axis} data-bucket={bucket.id} title={`${bucket.label}: ${bucket.count}`} className="flex h-full w-full flex-col items-center justify-end gap-1">
+                            <div className="w-full bg-ink-faint opacity-80" style={{ height: `${Math.max(4, (bucket.count / maxCount) * 34)}px` }} />
+                            <span className="font-mono text-[7px] text-ink-quiet">?</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex h-12 items-end gap-1" aria-label={`${getAxisLabel(axis, locale)} verdeling`}>
+                      {buckets.map((bucket) => (
+                        bucket.id === "unknown" ? null : (
+                        <div
+                          key={bucket.id}
+                          data-axis={axis}
+                          data-bucket={bucket.id}
+                          title={`${bucket.label}: ${bucket.count}`}
+                          className={`flex min-w-0 flex-1 flex-col items-center justify-end gap-1 ${
+                            bucket.minimum !== null && bucket.minimum >= value ? "opacity-100" : "opacity-35"
+                          }`}
+                        >
+                          <div
+                            className="w-full bg-ink opacity-80"
+                            style={{ height: `${Math.max(4, (bucket.count / maxCount) * 34)}px` }}
+                          />
+                          <span className="font-mono text-[7px] text-ink-quiet">{bucket.id}</span>
+                        </div>
+                        )
+                      ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[1.4rem_1fr] gap-2">
+                      <div />
+                      <div>
+                        <input
+                          aria-label={`${getAxisLabel(axis, locale)} minimum`}
+                          type="range"
+                          min="0"
+                          max="90"
+                          step="10"
+                          value={value}
+                          onChange={(event) => updateAxisMinimum(axis, Number(event.currentTarget.value))}
+                          className="w-full accent-red"
+                        />
+                      </div>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+
+            <section className="mt-5">
+              <h3 className="mb-2 font-mono text-[10px] text-ink-soft">tags</h3>
+              {TAG_IDS.some((tag) => tagCounts[tag] > 0 || selectedTagSet.has(tag)) ? (
+                <div className="flex flex-wrap gap-2">
+                  {TAG_IDS.filter((tag) => tagCounts[tag] > 0 || selectedTagSet.has(tag)).map((tag) => {
+                    const selected = selectedTagSet.has(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        data-tag-filter={tag}
+                        aria-pressed={selected}
+                        onClick={() => toggleTag(tag)}
+                        className={`inline-flex items-center gap-1.5 border px-2.5 py-2 text-[12px] ${
+                          selected
+                            ? "border-red bg-red-soft text-red-dark"
+                            : "border-ink/15 bg-paper text-ink-soft"
+                        }`}
+                      >
+                        <TagIcon tag={tag} />
+                        <span>{getTagLabel(tag, locale)}</span>
+                        <span className="font-mono text-[9px]">{tagCounts[tag]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p id="tags-empty-state" className="border border-ink/15 bg-paper/70 p-3 text-[12px] text-ink-quiet">
+                  nog geen tags in de huidige data
+                </p>
+              )}
+            </section>
+          </section>
+        </div>,
+        document.body
+      )}
+
       <button
         id="geolocate-button"
         onClick={handleGeolocate}
@@ -557,4 +906,3 @@ export default function MapView({ companies, mapboxToken }: MapViewProps) {
     </div>
   );
 }
-

@@ -12,8 +12,13 @@ function makeWorkspace() {
     dir,
     dest: join(dir, "companies.json"),
     tmp: join(dir, "companies.json.tmp"),
+    meta: join(dir, "companies.json.release"),
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
+}
+
+function downloadWasCalled(runGh) {
+  return runGh.mock.calls.some((call) => call[0][0] === "release" && call[0][1] === "download");
 }
 
 function ghRunner({ authed = true, tag = "v1.2.3", payload = validJson }) {
@@ -158,9 +163,10 @@ describe("fetchCompanies", () => {
     expect(JSON.parse(readFileSync(ws.dest, "utf8"))).toEqual({ companies: [{ id: "prior" }] });
   });
 
-  it("--skip-if-exists returns early when dest is present", async () => {
+  it("--skip-if-exists reuses the cache when the release tag is unchanged", async () => {
     writeFileSync(ws.dest, validJson);
-    const runGh = vi.fn(() => { throw new Error("should not be called"); });
+    writeFileSync(ws.meta, "v1.2.3\n");
+    const runGh = ghRunner({ authed: true, tag: "v1.2.3" });
     const result = await fetchCompanies({
       argv: ["--skip-if-exists"],
       env: {},
@@ -170,7 +176,81 @@ describe("fetchCompanies", () => {
       ...silentLogs(),
     });
     expect(result.skipped).toBe(true);
-    expect(runGh).not.toHaveBeenCalled();
+    expect(result.releaseTag).toBe("v1.2.3");
+    // Tag matched, so the asset itself was never downloaded.
+    expect(downloadWasCalled(runGh)).toBe(false);
+  });
+
+  it("--skip-if-exists refetches when a newer release is published", async () => {
+    writeFileSync(ws.dest, JSON.stringify({ stale: true }));
+    writeFileSync(ws.meta, "v1.0.0\n");
+    const runGh = ghRunner({ authed: true, tag: "v2.0.0" });
+    const result = await fetchCompanies({
+      argv: ["--skip-if-exists"],
+      env: {},
+      dest: ws.dest,
+      tmp: ws.tmp,
+      runGh,
+      ...silentLogs(),
+    });
+    expect(result.skipped).toBe(false);
+    expect(result.releaseTag).toBe("v2.0.0");
+    expect(readFileSync(ws.dest, "utf8")).toBe(validJson);
+    expect(readFileSync(ws.meta, "utf8").trim()).toBe("v2.0.0");
+  });
+
+  it("--skip-if-exists refetches a cache that has no recorded release tag", async () => {
+    writeFileSync(ws.dest, JSON.stringify({ stale: true }));
+    const runGh = ghRunner({ authed: true, tag: "v2.0.0" });
+    const result = await fetchCompanies({
+      argv: ["--skip-if-exists"],
+      env: {},
+      dest: ws.dest,
+      tmp: ws.tmp,
+      runGh,
+      ...silentLogs(),
+    });
+    expect(result.skipped).toBe(false);
+    expect(readFileSync(ws.dest, "utf8")).toBe(validJson);
+  });
+
+  it("--skip-if-exists keeps the cache when no auth is available to check", async () => {
+    writeFileSync(ws.dest, validJson);
+    writeFileSync(ws.meta, "v1.2.3\n");
+    const runGh = ghRunner({ authed: false });
+    const result = await fetchCompanies({
+      argv: ["--skip-if-exists"],
+      env: {},
+      dest: ws.dest,
+      tmp: ws.tmp,
+      runGh,
+      ...silentLogs(),
+    });
+    expect(result.skipped).toBe(true);
+    expect(readFileSync(ws.dest, "utf8")).toBe(validJson);
+  });
+
+  it("--skip-if-exists keeps the cache when the update check fails", async () => {
+    writeFileSync(ws.dest, validJson);
+    writeFileSync(ws.meta, "v1.2.3\n");
+    const runGh = vi.fn((args) => {
+      if (args[0] === "auth") return { status: 0, stdout: "", stderr: "" };
+      if (args[0] === "release" && args[1] === "view") {
+        return { status: 1, stdout: "", stderr: "network unreachable" };
+      }
+      return { status: 1, stdout: "", stderr: "unexpected" };
+    });
+    const result = await fetchCompanies({
+      argv: ["--skip-if-exists"],
+      env: {},
+      dest: ws.dest,
+      tmp: ws.tmp,
+      runGh,
+      ...silentLogs(),
+    });
+    expect(result.skipped).toBe(true);
+    expect(readFileSync(ws.dest, "utf8")).toBe(validJson);
+    expect(downloadWasCalled(runGh)).toBe(false);
   });
 
   it("--force refetches even when dest is present", async () => {

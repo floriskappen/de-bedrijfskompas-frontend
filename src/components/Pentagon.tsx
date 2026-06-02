@@ -1,19 +1,21 @@
 import React from "react";
 import type { Company } from "../lib/company-data/types";
+import { getAxisLabel } from "../lib/i18n/labels";
 
 interface PentagonProps {
   scores: Company["scores"];
+  locale?: "nl" | "en";
 }
 
 const AXES = [
-  { id: "substance", label: "substance" },
-  { id: "ecology", label: "ecology" },
-  { id: "power", label: "power" },
-  { id: "embeddedness", label: "embeddedness" },
-  { id: "posture", label: "posture" },
+  { id: "substance" },
+  { id: "ecology" },
+  { id: "power" },
+  { id: "embeddedness" },
+  { id: "posture" },
 ] as const;
 
-export default function Pentagon({ scores }: PentagonProps) {
+export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
   const size = 200;
   const cx = size / 2;
   const cy = size / 2;
@@ -126,7 +128,7 @@ export default function Pentagon({ scores }: PentagonProps) {
             dominantBaseline="middle"
             fontFamily="JetBrains Mono, monospace"
           >
-            {a.label.toUpperCase()}
+            {getAxisLabel(a.id, locale).toUpperCase()}
           </text>
         );
       })}

@@ -1,7 +1,8 @@
-import type { Company, AxisId } from "./types";
+import type { Company } from "./types";
+import { AXIS_IDS, TAG_IDS } from "./types";
 import rawCompanies from "../../data/companies.json";
 
-const AXIS_IDS: AxisId[] = ["substance", "ecology", "power", "embeddedness", "posture"];
+const TAG_ID_SET = new Set<string>(TAG_IDS);
 
 export function loadRaw(): Record<string, any>[] {
   return rawCompanies;
@@ -71,6 +72,25 @@ export function validate(record: any): { ok: boolean; errors: string[] } {
     }
   }
 
+  if ("capability_tags" in record) {
+    if (!Array.isArray(record.capability_tags)) {
+      errors.push("capability_tags must be an array of capability tag objects");
+    } else {
+      for (const tag of record.capability_tags) {
+        if (!tag || typeof tag !== "object") {
+          errors.push("invalid capability tag: expected object");
+          continue;
+        }
+        if (typeof tag.family !== "string" || !TAG_ID_SET.has(tag.family)) {
+          errors.push(`invalid capability tag family: ${String(tag.family)}`);
+        }
+        if (!["core", "supporting", "incidental"].includes(tag.prominence)) {
+          errors.push(`invalid capability tag prominence: ${String(tag.prominence)}`);
+        }
+      }
+    }
+  }
+
   // Enforce i18n blocks and assert no duplicate scores/evidence
   for (const locale of ["nl", "en"]) {
     const localeBlock = record[locale];
@@ -101,7 +121,10 @@ export function getAllCompanies(): Company[] {
   for (const record of rawRecords) {
     const { ok, errors } = validate(record);
     if (ok) {
-      companies.push(record as Company);
+      companies.push({
+        ...record,
+        capability_tags: Array.isArray(record.capability_tags) ? record.capability_tags : [],
+      } as Company);
     } else {
       console.warn(`[build warning] dropping company "${record?.company_id || "unknown"}": ${errors.join(", ")}`);
     }
@@ -135,5 +158,3 @@ export function getLocalizedField(record: Company, locale: string, fieldPath: st
 
   return getByPath(record[fallbackLocale], fieldPath);
 }
-
-
