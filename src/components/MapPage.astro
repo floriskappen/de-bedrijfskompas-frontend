@@ -19,7 +19,10 @@ if (!mapboxToken) {
 }
 ---
 
-<div class="relative w-screen h-screen overflow-hidden bg-paper flex flex-col">
+<div
+  id="map-reveal-surface"
+  class="map-reveal-surface relative w-screen h-screen overflow-hidden bg-paper flex flex-col"
+>
   <!-- map widget -->
   <div class="absolute inset-0 z-0">
     <MapView client:only="react" companies={companies} mapboxToken={mapboxToken} />

@@ -22,6 +22,31 @@ test.describe("map-overview E2E tests", () => {
     );
   };
 
+  const getRevealState = async (page: any) => {
+    return page.locator("#map-reveal-surface").evaluate((el: HTMLElement) => {
+      const style = window.getComputedStyle(el);
+      const coverStyle = window.getComputedStyle(el, "::before");
+      const bloomStyle = window.getComputedStyle(el, "::after");
+      const rect = el.getBoundingClientRect();
+
+      return {
+        animationName: style.animationName,
+        transform: style.transform,
+        coverAnimationName: coverStyle.animationName,
+        coverAnimationTimingFunction: coverStyle.animationTimingFunction,
+        coverPointerEvents: coverStyle.pointerEvents,
+        coverContent: coverStyle.content,
+        bloomAnimationName: bloomStyle.animationName,
+        bloomPointerEvents: bloomStyle.pointerEvents,
+        bloomContent: bloomStyle.content,
+        rect: {
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        },
+      };
+    });
+  };
+
   // 13.1 dutch route at root
   test("dutch route at root", async ({ page }) => {
     await page.goto("/");
@@ -36,6 +61,47 @@ test.describe("map-overview E2E tests", () => {
     await expect(page).toHaveTitle("de bedrijfskompas");
     const switcher = page.locator("#language-switcher");
     await expect(switcher).toHaveText("nederlands");
+  });
+
+  // Scenario: First load reveals from paper
+  test("initial map reveal starts from paper cover", async ({ page }) => {
+    for (const route of ["/", "/en/"]) {
+      await page.goto(route);
+
+      const surface = page.locator("#map-reveal-surface");
+      await expect(surface).toBeVisible();
+
+      const revealState = await getRevealState(page);
+      const viewport = page.viewportSize();
+      expect(revealState.animationName).toBe("none");
+      expect(revealState.transform).toBe("none");
+      expect(revealState.coverAnimationName).toBe("map-paper-cover-release");
+      expect(revealState.coverAnimationTimingFunction).toContain("steps");
+      expect(revealState.coverPointerEvents).toBe("none");
+      expect(revealState.bloomAnimationName).toBe("map-reveal-bloom");
+      expect(revealState.bloomPointerEvents).toBe("none");
+
+      await page.waitForTimeout(400);
+      const settledState = await getRevealState(page);
+      expect(settledState.rect.width).toBe(viewport?.width);
+      expect(settledState.rect.height).toBe(viewport?.height);
+    }
+  });
+
+  // Scenario: Reduced motion skips the reveal
+  test("reduced motion skips initial map reveal", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+
+    const revealState = await getRevealState(page);
+    const viewport = page.viewportSize();
+
+    expect(revealState.animationName).toBe("none");
+    expect(revealState.transform).toBe("none");
+    expect(revealState.coverContent).toBe("none");
+    expect(revealState.bloomContent).toBe("none");
+    expect(revealState.rect.width).toBe(viewport?.width);
+    expect(revealState.rect.height).toBe(viewport?.height);
   });
 
   // 13.3 auto-fit on cold load & 13.5 each renderable company has exactly one pin
@@ -72,9 +138,14 @@ test.describe("map-overview E2E tests", () => {
     await expect(heading).toHaveText("Land Life Company B.V.");
   });
 
-  // 13.9 deep-link opens peek card on first paint
-  test("deep-link opens peek card on first paint", async ({ page }) => {
+  // Scenario: Deep-link state survives the reveal
+  test("deep-link opens peek card through initial reveal", async ({ page }) => {
     await page.goto("/?selected=gravity");
+    await expect(page.locator("#map-reveal-surface")).toBeVisible();
+    const revealState = await getRevealState(page);
+    expect(revealState.transform).toBe("none");
+    expect(revealState.coverAnimationName).toBe("map-paper-cover-release");
+
     const heading = page.locator("#peek-card-title");
     await expect(heading).toHaveText("Gravity B.V.");
   });
