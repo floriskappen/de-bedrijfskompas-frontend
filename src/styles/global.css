@@ -1,41 +1,105 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import "../../vendor/ontwerp/values/tailwind/theme.css";
+@import "../../vendor/ontwerp/values/css/tokens.css";
+
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("../../vendor/ontwerp/fonts/archivo-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("../../vendor/ontwerp/fonts/jetbrains-mono-latin.woff2") format("woff2");
+}
 
 @theme {
-  /* paper palette */
-  --color-paper: #f1ece0;
-  --color-paper-warm: #ece4d2;
-  --color-paper-deep: #e4dbc4;
-  --color-paper-card: #f8f3e6;
+  /* compatibility aliases backed by ontwerp semantic/component values */
+  --color-paper: var(--color-surface-page);
+  --color-paper-warm: var(--color-surface-warm);
+  --color-paper-deep: var(--color-surface-deep);
+  --color-paper-card: var(--color-surface-claim);
 
-  /* ink scale */
-  --color-ink: #1f1b16;
-  --color-ink-soft: #4a4239;
-  --color-ink-quiet: #8a8170;
-  --color-ink-faint: #b8ae99;
+  --color-ink: var(--color-text-default);
+  --color-ink-soft: var(--color-text-soft);
+  --color-ink-quiet: var(--color-text-quiet);
+  --color-ink-faint: var(--color-text-faint);
 
-  /* single accent */
-  --color-red: #b84a39;
-  --color-red-soft: #ebd4cc;
-  --color-red-dark: #8a3528;
+  --color-red: var(--color-accent-base);
+  --color-red-soft: var(--color-surface-deep);
+  --color-red-dark: var(--color-accent-base);
 
-  /* legacy aliases so existing class names keep compiling */
-  --color-brand-red: #b84a39;
-  --color-faint: #b8ae99;
+  --color-brand-red: var(--color-accent-base);
+  --color-faint: var(--color-text-faint);
 
   --font-sans: "Archivo", "Helvetica Neue", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* ---------------------------------------------------------------------------
+   active theme: WINE
+   The ontwerp system ships one set of cream baseline tokens and a family of
+   swappable skins (see vendor/ontwerp/zoo/source/data/skins.mjs). This app
+   pins the "wine" skin: the seven skin roles, plus the derived surface/text/
+   border tones the app relies on, remapped into the wine ramp. To switch the
+   whole app to another skin, replace the values in this one block.
+   --------------------------------------------------------------------------- */
+:root {
+  --color-surface-page: #f2e7e7;
+  --color-surface-warm: #ecdcdc;
+  --color-surface-deep: #e8d3d3;
+  --color-surface-claim: rgba(227, 197, 197, 0.5);
+  --color-surface-claim-hover: rgba(227, 197, 197, 0.8);
+  --color-surface-ink: #2a1718;
+
+  --color-text-default: #2a1718;
+  --color-text-soft: #553b3d;
+  --color-text-quiet: #8b7375;
+  --color-text-faint: #c4a9ab;
+  --color-text-on-ink: #f2e7e7;
+
+  --color-accent-base: #8e3a3f;
+  --color-accent-soft: #a85d61;
+
+  --color-border-default: rgba(42, 23, 24, 0.65);
+  --color-border-quiet: rgba(42, 23, 24, 0.25);
+  --color-border-strong: rgba(42, 23, 24, 0.95);
+  --color-border-accent: rgba(142, 58, 63, 0.85);
+
+  --selection-accent: #8e3a3f;
+
+  /* basemap tones — the wine tint held down to a faint wash (~a fifth of the
+     surface saturation) so the recoloured map reads as calm paper, not red.
+     These feed applyPaperMapStyle; the page surfaces stay fully wine. */
+  --map-land: #efebeb;
+  --map-warm: #eae4e4;
+  --map-water: #e6dede;
+  --map-road: #cdbcbc;
+  --map-label: #5c4647;
+
+  /* a soft wine wash for inset panels (peek callout, logo tile) — clearly
+     themed but light, so they never fall back to reading as cream */
+  --wash-wine: color-mix(in srgb, var(--color-accent-base) 8%, var(--color-surface-page));
+
+  /* filter sheet + its inset cards held lighter and quieter than the page */
+  --filter-surface: #f6f0f0;
+  --filter-card-surface: rgba(227, 197, 197, 0.26);
+}
+
 html,
 body {
   margin: 0;
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background: var(--color-surface-page);
+  color: var(--color-text-default);
   font-family: var(--font-sans);
   font-weight: 500;
-  letter-spacing: -0.018em;
-  line-height: 1.32;
+  letter-spacing: 0;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   text-transform: lowercase;
@@ -48,7 +112,7 @@ textarea,
 select {
   text-transform: inherit;
   font-family: inherit;
-  letter-spacing: inherit;
+  letter-spacing: 0;
 }
 
 /* mono utility marks always opt back in to uppercase + tracking */
@@ -61,8 +125,8 @@ kbd {
 }
 
 ::selection {
-  background: var(--color-red);
-  color: var(--color-paper);
+  background: var(--selection-accent);
+  color: var(--color-text-on-ink);
 }
 
 /* never italic — recast emphasis as weight */
@@ -70,13 +134,420 @@ i,
 em {
   font-style: normal;
   font-weight: 600;
-  color: var(--color-ink);
+  color: var(--color-text-default);
 }
 
 /* paper-grain texture utility for sheets/cards */
 .paper-grain {
   background-image: url("/paper-grain-soft.svg");
   background-size: 600px 600px;
+}
+
+.ontwerp-paper {
+  background: var(--color-surface-claim);
+  color: var(--color-text-default);
+  border: 1px solid var(--color-border-quiet);
+}
+
+.ontwerp-card {
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--card-surface);
+  background-size: 600px 600px, auto;
+  color: var(--card-text);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+}
+
+.ontwerp-card.is-solid {
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-page);
+  background-size: 600px 600px, auto;
+}
+
+/* warm opaque card — the peek card sits on the map as a tactile paper sheet.
+   Kept light and only faintly warm: the wine surface at full strength read too
+   dark/red here, so this is a softened tint that still lifts off the basemap. */
+.ontwerp-card.is-warm {
+  background:
+    url("/paper-grain-soft.svg"),
+    #f4ecec;
+  background-size: 600px 600px, auto;
+}
+
+/* inset panel inside the peek card (the "wat ze doen" callout) — a soft wine
+   wash so it reads as part of the theme rather than the old cream baseline */
+.peek-callout {
+  background: var(--wash-wine);
+  border: 1px solid var(--color-border-accent);
+}
+
+.ontwerp-button,
+.ontwerp-icon-button {
+  overflow: hidden;
+  cursor: pointer;
+  color: var(--button-text-default);
+  background: var(--color-surface-page);
+  border: 1px solid var(--button-border-default);
+  border-bottom-width: 3px;
+  border-radius: var(--button-radius);
+  font: var(--button-typography);
+  text-transform: lowercase;
+}
+
+.ontwerp-button:not(.absolute):not(.fixed):not(.sticky),
+.ontwerp-icon-button:not(.absolute):not(.fixed):not(.sticky) {
+  position: relative;
+}
+
+.ontwerp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-inline-gap);
+  padding: var(--button-padding-block) var(--button-padding-inline);
+}
+
+.ontwerp-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--button-size, 40px);
+  height: var(--button-size, 40px);
+  padding: 0;
+}
+
+.ontwerp-icon-button.is-large {
+  --button-size: 48px;
+}
+
+.ontwerp-icon-button.is-compact {
+  --button-size: 36px;
+}
+
+.ontwerp-button::before,
+.ontwerp-icon-button::before,
+.score-badge::before,
+.filter-chip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(var(--color-text-default) 1px, transparent 1.4px);
+  background-position: center;
+  background-size: 5px 5px;
+  opacity: 0.06;
+}
+
+.ontwerp-button > :not(.absolute):not(.fixed):not(.sticky):not(.filter-count-badge),
+.ontwerp-icon-button > :not(.absolute):not(.fixed):not(.sticky):not(.filter-count-badge),
+.score-badge > :not(.absolute):not(.fixed):not(.sticky),
+.cluster-badge > :not(.absolute):not(.fixed):not(.sticky),
+.filter-chip > :not(.absolute):not(.fixed):not(.sticky) {
+  position: relative;
+  z-index: 1;
+}
+
+.ontwerp-button:hover,
+.ontwerp-icon-button:hover {
+  color: var(--button-text-hover);
+  background: var(--button-surface-hover);
+  border-color: var(--button-border-hover);
+}
+
+.ontwerp-button:active,
+.ontwerp-icon-button:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+
+.ontwerp-button:focus-visible,
+.ontwerp-icon-button:focus-visible,
+.filter-chip:focus-visible,
+.filter-range:focus-visible {
+  outline: 2px solid var(--color-border-accent);
+  outline-offset: 2px;
+}
+
+.ontwerp-button:disabled {
+  cursor: default;
+  opacity: var(--opacity-muted);
+}
+
+.ontwerp-button:disabled:hover {
+  color: var(--button-text-default);
+  background: var(--color-surface-page);
+  border-color: var(--button-border-default);
+}
+
+.ontwerp-button.is-ink {
+  color: var(--color-text-on-ink);
+  background: var(--color-surface-ink);
+  border-color: var(--color-surface-ink);
+}
+
+.ontwerp-button.is-ink:hover {
+  color: var(--color-text-default);
+  background: var(--color-surface-page);
+  border-color: var(--color-border-strong);
+}
+
+/* accent button — the single accent colour, for the primary call to action.
+   keeps the Ben-Day dot screen (ink dots read as quiet tooth over the red). */
+.ontwerp-button.is-accent {
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-base);
+  border-color: var(--color-accent-base);
+}
+
+.ontwerp-button.is-accent:hover {
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-soft);
+}
+
+.ontwerp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-inline-gap);
+  color: var(--badge-text);
+  background: var(--badge-surface);
+  border: 1px solid var(--badge-border);
+  border-radius: var(--badge-radius);
+  padding: var(--badge-padding-block) var(--badge-padding-inline);
+  font: var(--badge-typography);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ontwerp-sheet {
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-page);
+  background-size: 600px 600px, auto;
+  color: var(--color-text-default);
+  border-top: 1px solid var(--color-border-default);
+  box-shadow: 0 -12px 0 rgb(31 27 22 / 0.06);
+}
+
+.drag-handle-bar {
+  height: 4px;
+  width: 40px;
+  background: var(--color-border-quiet);
+}
+
+.score-badge {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-default);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 3px;
+  border-radius: var(--radius-none);
+  box-shadow: none;
+  font: var(--badge-typography);
+  cursor: pointer;
+  min-width: 48px;
+  height: 32px;
+  gap: 5px;
+  padding: 0 var(--space-badge-inline);
+}
+
+/* category indicator — an accent dot (a real icon will replace it later) */
+.score-badge-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-base);
+}
+
+.score-badge.is-score-high::before {
+  opacity: 0.1;
+  background-size: 4px 4px;
+}
+
+.score-badge.is-score-mid::before {
+  opacity: 0.07;
+  background-size: 5px 5px;
+}
+
+.score-badge.is-score-low::before,
+.score-badge.is-score-unknown::before {
+  opacity: 0.04;
+  background-size: 7px 7px;
+}
+
+.score-badge.is-score-unknown {
+  border-style: dashed;
+}
+
+/* a cluster is just a pigment — no paper tile, no border, no button chrome.
+   A soft organic blot of layered wine/ink dye carries the count in white. */
+.cluster-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font: var(--badge-typography);
+  cursor: pointer;
+}
+
+.cluster-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* near-circle with a touched-up bleed so it reads as dye, not a chip */
+  border-radius: 47% 53% 45% 55% / 55% 47% 53% 45%;
+  background:
+    radial-gradient(circle at 32% 30%, var(--color-accent-soft), transparent 62%),
+    radial-gradient(circle at 70% 72%, var(--color-text-soft), transparent 62%),
+    radial-gradient(circle at 50% 50%, var(--color-accent-base), transparent 72%),
+    var(--color-accent-base);
+  filter: blur(0.4px);
+  box-shadow: 0 1px 6px rgb(42 23 24 / 0.32);
+}
+
+.cluster-badge:hover::after {
+  filter: blur(0.4px) brightness(1.06);
+}
+
+.cluster-badge:active {
+  transform: scale(0.94);
+}
+
+.score-badge:hover {
+  color: var(--color-text-default);
+  background: var(--color-surface-warm);
+  border-color: var(--color-border-strong);
+}
+
+.score-badge:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+
+/* the selected pin inverts to ink so it reads as chosen against the paper field */
+.score-badge.is-selected,
+.score-badge.is-selected:hover {
+  color: var(--color-text-on-ink);
+  background: var(--color-surface-ink);
+  border-color: var(--color-surface-ink);
+  border-bottom-width: 1px;
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.score-badge.is-selected .score-badge-dot {
+  background: var(--color-accent-soft);
+}
+
+/* the icon button clips its dot screen with overflow:hidden, which also clips
+   the count badge — let the button that carries a badge overflow so it shows */
+.ontwerp-icon-button:has(.filter-count-badge) {
+  overflow: visible;
+}
+
+.filter-count-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-base);
+  border: 2px solid var(--color-surface-page);
+  font: var(--badge-typography);
+}
+
+.user-location-marker {
+  width: 18px;
+  height: 18px;
+  background: var(--color-surface-page);
+  border: 3px solid var(--color-border-accent);
+  box-shadow: 0 0 0 5px rgb(184 74 57 / 0.14);
+}
+
+.filter-chip {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-inline-gap);
+  color: var(--badge-text);
+  background: var(--color-surface-page);
+  border: 1px solid var(--badge-border);
+  border-bottom-width: 3px;
+  padding: var(--space-sm) var(--space-md);
+  font: var(--typography-body-sm);
+  cursor: pointer;
+}
+
+/* immediate tactile press on tap — no transition, snaps down like the buttons */
+.filter-chip:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+
+/* active tag: filled with the accent so "selected" is unmistakable, and held
+   in the pressed-down state rather than the resting raised one */
+.filter-chip[aria-pressed="true"] {
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-base);
+  border-color: var(--color-accent-base);
+  border-bottom-width: 1px;
+  transform: translateY(2px);
+}
+
+.filter-chip[aria-pressed="true"]:hover {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-soft);
+}
+
+.filter-range {
+  accent-color: var(--color-accent-base);
+}
+
+/* corner-only warm bloom + grain over the recoloured basemap — transparent in
+   the centre so it never competes with marker legibility */
+.map-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 50% at 0% 0%, color-mix(in srgb, var(--color-accent-base) 14%, transparent), transparent 70%),
+    radial-gradient(60% 55% at 100% 0%, color-mix(in srgb, var(--color-surface-deep) 72%, transparent), transparent 70%),
+    radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, var(--color-accent-soft) 12%, transparent), transparent 72%),
+    radial-gradient(64% 56% at 0% 100%, color-mix(in srgb, var(--color-surface-deep) 64%, transparent), transparent 72%);
+  mix-blend-mode: multiply;
+}
+
+.map-atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/paper-grain-soft.svg");
+  background-size: 600px 600px;
+  mix-blend-mode: multiply;
+  opacity: 0.05;
 }
 
 /* first-load map reveal — static map under a stepped paper cover */
@@ -95,24 +566,32 @@ em {
 
 .map-reveal-surface::before {
   background:
-    radial-gradient(circle at 28% 34%, rgba(248, 243, 230, 0.95), transparent 18%),
-    radial-gradient(circle at 68% 42%, rgba(228, 219, 196, 0.42), transparent 22%),
-    linear-gradient(135deg, rgba(31, 27, 22, 0.06), transparent 34%, rgba(31, 27, 22, 0.04) 66%, transparent),
+    radial-gradient(circle at 28% 34%, color-mix(in srgb, #ffffff 60%, var(--color-surface-page)), transparent 22%),
+    radial-gradient(circle at 72% 30%, color-mix(in srgb, var(--color-accent-soft) 28%, transparent), transparent 30%),
+    radial-gradient(circle at 68% 42%, color-mix(in srgb, var(--color-surface-deep) 72%, transparent), transparent 26%),
+    radial-gradient(circle at 22% 74%, color-mix(in srgb, var(--color-amber) 22%, transparent), transparent 32%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-accent-base) 8%, transparent),
+      transparent 34%,
+      color-mix(in srgb, var(--color-text-default) 7%, transparent) 66%,
+      transparent
+    ),
     url("/paper-grain-soft.svg"),
     var(--color-paper);
-  background-size: auto, auto, auto, 600px 600px, auto;
-  animation: map-paper-cover-release 520ms steps(7, end) both;
+  background-size: auto, auto, auto, auto, auto, 600px 600px, auto;
+  animation: map-paper-cover-release 1150ms steps(9, end) both;
   will-change: opacity, mask-size, -webkit-mask-size;
 }
 
 .map-reveal-surface::after {
   background:
-    radial-gradient(circle at 30% 36%, rgba(248, 243, 230, 0.95) 0 3%, transparent 10%),
-    radial-gradient(circle at 61% 45%, rgba(248, 243, 230, 0.9) 0 2.5%, transparent 9%),
-    radial-gradient(circle at 48% 68%, rgba(248, 243, 230, 0.65) 0 2%, transparent 8%);
+    radial-gradient(circle at 30% 36%, color-mix(in srgb, var(--color-amber) 70%, transparent) 0 3%, transparent 14%),
+    radial-gradient(circle at 61% 45%, color-mix(in srgb, var(--color-accent-soft) 80%, transparent) 0 2.5%, transparent 13%),
+    radial-gradient(circle at 48% 68%, color-mix(in srgb, var(--color-accent-base) 66%, transparent) 0 2.5%, transparent 12%);
   mix-blend-mode: screen;
   opacity: 0;
-  animation: map-reveal-bloom 520ms steps(7, end) both;
+  animation: map-reveal-bloom 1150ms steps(9, end) both;
 }
 
 @keyframes map-paper-cover-release {
@@ -128,38 +607,49 @@ em {
       radial-gradient(circle at 61% 45%, transparent 0 0, #000 0),
       radial-gradient(circle at 48% 68%, transparent 0 0, #000 0);
   }
-  24% {
-    opacity: 0.94;
+  18% {
+    opacity: 1;
     -webkit-mask-image:
-      radial-gradient(circle at 30% 36%, transparent 0 10%, #000 12%),
-      radial-gradient(circle at 61% 45%, transparent 0 7%, #000 9%),
-      radial-gradient(circle at 48% 68%, transparent 0 5%, #000 7%);
+      radial-gradient(circle at 30% 36%, transparent 0 6%, #000 8%),
+      radial-gradient(circle at 61% 45%, transparent 0 4%, #000 6%),
+      radial-gradient(circle at 48% 68%, transparent 0 3%, #000 5%);
     mask-image:
-      radial-gradient(circle at 30% 36%, transparent 0 10%, #000 12%),
-      radial-gradient(circle at 61% 45%, transparent 0 7%, #000 9%),
-      radial-gradient(circle at 48% 68%, transparent 0 5%, #000 7%);
+      radial-gradient(circle at 30% 36%, transparent 0 6%, #000 8%),
+      radial-gradient(circle at 61% 45%, transparent 0 4%, #000 6%),
+      radial-gradient(circle at 48% 68%, transparent 0 3%, #000 5%);
   }
-  48% {
+  42% {
+    opacity: 0.96;
+    -webkit-mask-image:
+      radial-gradient(circle at 30% 36%, transparent 0 18%, #000 21%),
+      radial-gradient(circle at 61% 45%, transparent 0 14%, #000 17%),
+      radial-gradient(circle at 48% 68%, transparent 0 11%, #000 14%);
+    mask-image:
+      radial-gradient(circle at 30% 36%, transparent 0 18%, #000 21%),
+      radial-gradient(circle at 61% 45%, transparent 0 14%, #000 17%),
+      radial-gradient(circle at 48% 68%, transparent 0 11%, #000 14%);
+  }
+  66% {
     opacity: 0.74;
     -webkit-mask-image:
-      radial-gradient(circle at 30% 36%, transparent 0 25%, #000 28%),
-      radial-gradient(circle at 61% 45%, transparent 0 20%, #000 23%),
-      radial-gradient(circle at 48% 68%, transparent 0 16%, #000 19%);
+      radial-gradient(circle at 30% 36%, transparent 0 34%, #000 38%),
+      radial-gradient(circle at 61% 45%, transparent 0 30%, #000 34%),
+      radial-gradient(circle at 48% 68%, transparent 0 26%, #000 30%);
     mask-image:
-      radial-gradient(circle at 30% 36%, transparent 0 25%, #000 28%),
-      radial-gradient(circle at 61% 45%, transparent 0 20%, #000 23%),
-      radial-gradient(circle at 48% 68%, transparent 0 16%, #000 19%);
+      radial-gradient(circle at 30% 36%, transparent 0 34%, #000 38%),
+      radial-gradient(circle at 61% 45%, transparent 0 30%, #000 34%),
+      radial-gradient(circle at 48% 68%, transparent 0 26%, #000 30%);
   }
-  72% {
-    opacity: 0.38;
+  86% {
+    opacity: 0.34;
     -webkit-mask-image:
-      radial-gradient(circle at 30% 36%, transparent 0 46%, #000 50%),
-      radial-gradient(circle at 61% 45%, transparent 0 42%, #000 46%),
-      radial-gradient(circle at 48% 68%, transparent 0 38%, #000 42%);
+      radial-gradient(circle at 30% 36%, transparent 0 54%, #000 58%),
+      radial-gradient(circle at 61% 45%, transparent 0 50%, #000 54%),
+      radial-gradient(circle at 48% 68%, transparent 0 46%, #000 50%);
     mask-image:
-      radial-gradient(circle at 30% 36%, transparent 0 46%, #000 50%),
-      radial-gradient(circle at 61% 45%, transparent 0 42%, #000 46%),
-      radial-gradient(circle at 48% 68%, transparent 0 38%, #000 42%);
+      radial-gradient(circle at 30% 36%, transparent 0 54%, #000 58%),
+      radial-gradient(circle at 61% 45%, transparent 0 50%, #000 54%),
+      radial-gradient(circle at 48% 68%, transparent 0 46%, #000 50%);
   }
   100% {
     opacity: 0;
@@ -174,17 +664,17 @@ em {
     opacity: 0;
     filter: blur(0);
   }
-  24% {
+  18% {
+    opacity: 0.75;
+    filter: blur(1px);
+  }
+  44% {
     opacity: 0.5;
-    filter: blur(2px);
+    filter: blur(6px);
   }
-  48% {
-    opacity: 0.32;
-    filter: blur(8px);
-  }
-  72% {
-    opacity: 0.18;
-    filter: blur(14px);
+  70% {
+    opacity: 0.26;
+    filter: blur(13px);
   }
   100% {
     opacity: 0;
@@ -220,17 +710,48 @@ em {
   animation: peek-slide-out 110ms steps(3, end) both;
 }
 
-@keyframes filter-sheet-in {
+/* the filter sheet reuses the peek card's exact stepped slide — in and out —
+   so the two bottom sheets feel like the same object. It also sits on a lighter,
+   quieter surface than the page, and dials its inset filter cards (--card-surface)
+   down to a faint wash so the controls — not the background — carry the colour. */
+.filter-sheet {
+  --card-surface: var(--filter-card-surface);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-surface);
+  background-size: 600px 600px, auto;
+  animation: peek-slide-in 160ms steps(4, end) both;
+}
+
+.filter-sheet.is-exiting {
+  animation: peek-slide-out 110ms steps(3, end) both;
+}
+
+.filter-backdrop {
+  background: rgb(31 27 22 / 0.1);
+  animation: filter-backdrop-in 160ms steps(4, end) both;
+}
+
+.filter-backdrop.is-exiting {
+  animation: filter-backdrop-out 110ms steps(3, end) both;
+}
+
+@keyframes filter-backdrop-in {
   from {
-    transform: translateY(100%);
+    opacity: 0;
   }
   to {
-    transform: translateY(0);
+    opacity: 1;
   }
 }
 
-.filter-sheet {
-  animation: filter-sheet-in 180ms steps(5, end) both;
+@keyframes filter-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -246,7 +767,10 @@ em {
 
   .peek-card-enter,
   .peek-card-exit,
-  .filter-sheet {
+  .filter-sheet,
+  .filter-sheet.is-exiting,
+  .filter-backdrop,
+  .filter-backdrop.is-exiting {
     animation: none;
   }
 }

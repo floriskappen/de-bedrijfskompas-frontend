@@ -146,13 +146,32 @@ test.describe("map-overview E2E tests", () => {
     );
   });
 
-  test("selected score badge gets red halo ring", async ({ page }) => {
+  test("selected score badge stays pressed down without a halo", async ({ page }) => {
     await page.goto("/");
     await setCenterAndZoom(page, 4.92268301, 52.36276833, 16);
 
+    await expect(page.locator("#pin-land-life-company .pin-inner")).toHaveClass(/is-score-/);
     await page.locator("#pin-land-life-company").click();
 
-    await expect(page.locator("#pin-land-life-company .pin-inner")).toHaveClass(/ring-red/);
+    const selectedBadge = page.locator("#pin-land-life-company .pin-inner");
+    await expect(selectedBadge).toHaveClass(/is-selected/);
+    const selectedStyle = await selectedBadge.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        backgroundColor: style.backgroundColor,
+        borderBottomWidth: style.borderBottomWidth,
+        boxShadow: style.boxShadow,
+        color: style.color,
+        transform: style.transform,
+      };
+    });
+    // the selected pin inverts to ink so it reads as chosen on the paper field
+    // (wine theme: ink #2a1718, paper text #f2e7e7)
+    expect(selectedStyle.backgroundColor).toBe("rgb(42, 23, 24)");
+    expect(selectedStyle.borderBottomWidth).toBe("1px");
+    expect(selectedStyle.boxShadow).toBe("none");
+    expect(selectedStyle.color).toBe("rgb(242, 231, 231)");
+    expect(selectedStyle.transform).not.toBe("none");
   });
 
   // 13.8 selecting a pin updates the URL and opens the peek card
@@ -249,6 +268,24 @@ test.describe("map-overview E2E tests", () => {
     await cta.click();
     await expect(page).toHaveURL(/.*\/en\/land-life-company\//);
     await expect(page.locator("h1")).toHaveText("land life company b.v.");
+  });
+
+  test("peek card action buttons share the same height", async ({ page }) => {
+    await page.goto("/?selected=land-life-company");
+
+    const peekCardBackground = await page.locator("#peek-card").evaluate((el) => getComputedStyle(el).backgroundColor);
+    // wine theme warm surface
+    expect(peekCardBackground).toBe("rgb(236, 220, 220)");
+
+    const cta = page.locator('#peek-card a[href="/land-life-company/"]');
+    const favorite = page.locator('#peek-card button[aria-label="voeg bladwijzer toe"]');
+    await expect(cta).toBeVisible();
+    await expect(favorite).toBeVisible();
+
+    const [ctaBox, favoriteBox] = await Promise.all([cta.boundingBox(), favorite.boundingBox()]);
+    expect(ctaBox).not.toBeNull();
+    expect(favoriteBox).not.toBeNull();
+    expect(Math.round(ctaBox!.height)).toBe(Math.round(favoriteBox!.height));
   });
 
   test("map chrome omits language switcher while routes stay localized", async ({ page }) => {
@@ -367,10 +404,20 @@ test.describe("map-overview E2E tests", () => {
     await page.goto("/");
     await setTestFilters(page, { axisMinimums: { power: 5 }, selectedTags: ["commercial"] });
     await expect(page.locator("#filters-active-count")).toHaveText("2");
+    await expect(page.locator("#filters-active-count")).toHaveClass(/filter-count-badge/);
 
     await page.locator("#filters-button").click();
 
     await expect(page.locator('[data-tag-filter="commercial"]')).toHaveAttribute("aria-pressed", "true");
+    const activeTagStyle = await page.locator('[data-tag-filter="commercial"]').evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        borderBottomWidth: style.borderBottomWidth,
+        transform: style.transform,
+      };
+    });
+    expect(activeTagStyle.borderBottomWidth).toBe("1px");
+    expect(activeTagStyle.transform).not.toBe("none");
     await page.locator("#filters-reset").click();
 
     await expect(page.locator('input[aria-label="macht minimum"]')).toHaveValue("0");
@@ -454,13 +501,17 @@ test.describe("map-overview E2E tests", () => {
 
     const panel = page.locator("#filters-panel");
     await expect(panel).toBeVisible();
+    await panel.evaluate((el) => {
+      const animations = el.getAnimations();
+      return Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)));
+    });
     // the panel must paint above the peek card, not behind it
     const panelOnTop = await page.evaluate(() => {
-      const p = document.getElementById("filters-panel");
-      if (!p) return false;
-      const r = p.getBoundingClientRect();
+      const reset = document.getElementById("filters-reset");
+      if (!reset) return false;
+      const r = reset.getBoundingClientRect();
       const el = document.elementFromPoint(r.left + r.width / 2, r.top + 8);
-      return !!el && !!el.closest("#filters-panel");
+      return el === reset || reset.contains(el);
     });
     expect(panelOnTop).toBe(true);
   });
@@ -481,5 +532,102 @@ test.describe("map-overview E2E tests", () => {
       return el === reset || (!!el && reset.contains(el));
     });
     expect(closeReachable).toBe(true);
+  });
+
+  test("map ui uses pinned ontwerp values", async ({ page }) => {
+    for (const route of ["/", "/en/"]) {
+      await page.goto(route);
+      const tokens = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        return {
+          page: root.getPropertyValue("--color-surface-page").trim(),
+          ink: root.getPropertyValue("--color-text-default").trim(),
+          accent: root.getPropertyValue("--color-accent-base").trim(),
+        };
+      });
+      expect(tokens.page).toBeTruthy();
+      expect(tokens.ink).toBeTruthy();
+      expect(tokens.accent).toBeTruthy();
+
+      const filtersButton = page.locator("#filters-button");
+      await expect(filtersButton).toHaveClass(/ontwerp-icon-button/);
+      await expect(filtersButton).toBeVisible();
+
+      const buttonStyle = await filtersButton.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          borderRadius: style.borderRadius,
+          borderColor: style.borderColor,
+          position: style.position,
+          transitionDuration: style.transitionDuration,
+        };
+      });
+      expect(buttonStyle.borderRadius).toBe("0px");
+      expect(buttonStyle.borderColor).not.toBe("rgb(59, 130, 246)");
+      expect(buttonStyle.position).toBe("absolute");
+      expect(buttonStyle.transitionDuration).toBe("0s");
+
+      const geolocatePosition = await page.locator("#geolocate-button").evaluate((el) => getComputedStyle(el).position);
+      expect(geolocatePosition).toBe("absolute");
+
+      await setTestFilters(page, { axisMinimums: { power: 5 } });
+      const countStyle = await page.locator("#filters-active-count").evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+          height: style.height,
+          position: style.position,
+        };
+      });
+      // accent fill + paper ring so the count reads clearly against the button
+      // (wine theme: accent #8e3a3f, paper text #f2e7e7)
+      expect(countStyle.backgroundColor).toBe("rgb(142, 58, 63)");
+      expect(countStyle.color).toBe("rgb(242, 231, 231)");
+      expect(countStyle.height).toBe("19px");
+      expect(countStyle.position).toBe("absolute");
+
+      await filtersButton.click();
+      await expect(page.locator("#filters-panel")).toHaveClass(/ontwerp-sheet/);
+      await expect(page.locator("#filters-reset")).toHaveClass(/ontwerp-button/);
+    }
+  });
+
+  test("map behavior survives ontwerp reskin", async ({ page }) => {
+    await page.goto("/");
+    await setCenterAndZoom(page, 4.92268301, 52.36276833, 16);
+
+    await page.locator("#pin-land-life-company").click();
+    await expect(page).toHaveURL(/.*selected=land-life-company.*/);
+    await expect(page.locator("#peek-card-title")).toHaveText("Land Life Company B.V.");
+    await expect(page.locator("#pin-land-life-company .pin-inner")).toHaveClass(/score-badge/);
+    await expect(page.locator("#pin-land-life-company .pin-inner")).toHaveClass(/is-selected/);
+
+    await page.locator("#filters-button").click();
+    await expect(page.locator("#filters-panel")).toBeVisible();
+    await setTestFilters(page, { axisMinimums: { power: 5 } });
+    await expect(page).not.toHaveURL(/.*selected=.*/);
+    await expect(page.locator("#peek-card-title")).toHaveCount(0);
+  });
+
+  test("map interactions use stepped or immediate motion", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    const panelTiming = await page.locator("#filters-panel").evaluate((el) => getComputedStyle(el).animationTimingFunction);
+    expect(panelTiming).toContain("steps");
+
+    const buttonTransition = await page.locator("#filters-button").evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(buttonTransition).toBe("0s");
+
+    await page.goto("/?selected=gravity");
+    const cardTiming = await page.locator("#peek-card").evaluate((el) => getComputedStyle(el).animationTimingFunction);
+    expect(cardTiming).toContain("steps");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+    const reducedPanelAnimation = await page.locator("#filters-panel").evaluate((el) => getComputedStyle(el).animationName);
+    expect(reducedPanelAnimation).toBe("none");
   });
 });

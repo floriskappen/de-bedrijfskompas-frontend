@@ -1,0 +1,4 @@
+[submodule "vendor/ontwerp"]
+	path = vendor/ontwerp
+	url = git@github.com:floriskappen/ontwerpsysteem.git
+	branch = release

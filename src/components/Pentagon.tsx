@@ -45,7 +45,7 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
           key={i}
           points={ringPoints(k)}
           fill="none"
-          stroke={i === 2 ? "rgba(31,27,22,0.22)" : "rgba(31,27,22,0.12)"}
+          stroke={i === 2 ? "var(--color-border-quiet)" : "color-mix(in srgb, var(--color-border-quiet) 55%, transparent)"}
           strokeWidth={i === 2 ? 1 : 0.7}
           strokeDasharray={i < 2 ? "2 3" : ""}
         />
@@ -62,7 +62,7 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
             y1={cy}
             x2={px}
             y2={py}
-            stroke="rgba(31,27,22,0.14)"
+            stroke="color-mix(in srgb, var(--color-border-quiet) 65%, transparent)"
             strokeWidth={0.7}
             strokeDasharray={isNull ? "2 3" : ""}
           />
@@ -72,8 +72,8 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
       {/* value polygon */}
       <polygon
         points={valuePoints}
-        fill="rgba(184,74,57,0.18)"
-        stroke="#B84A39"
+        fill="color-mix(in srgb, var(--color-accent-base) 18%, transparent)"
+        stroke="var(--color-accent-base)"
         strokeWidth={1.5}
         strokeLinejoin="round"
       />
@@ -90,7 +90,7 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
               x={px}
               y={py + 4}
               fontSize={16}
-              fill="#B8AE99"
+              fill="var(--color-text-faint)"
               textAnchor="middle"
               fontFamily="Archivo, sans-serif"
             >
@@ -105,8 +105,8 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
             cx={px}
             cy={py}
             r={3.5}
-            fill="#B84A39"
-            stroke="#ECE4D2"
+            fill="var(--color-accent-base)"
+            stroke="var(--color-surface-warm)"
             strokeWidth={1.5}
           />
         );
@@ -122,8 +122,8 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
             x={lx}
             y={ly}
             fontSize={9.5}
-            letterSpacing={1.8}
-            fill={isNull ? "#B8AE99" : "#4A4239"}
+            letterSpacing="0.08em"
+            fill={isNull ? "var(--color-text-faint)" : "var(--color-text-soft)"}
             textAnchor="middle"
             dominantBaseline="middle"
             fontFamily="JetBrains Mono, monospace"

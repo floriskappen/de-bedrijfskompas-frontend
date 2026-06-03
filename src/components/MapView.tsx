@@ -25,7 +25,14 @@ interface MapViewProps {
 }
 
 const PIN_BADGE_CLASS =
-  "pin-inner flex h-8 min-w-12 items-center justify-center gap-1 border border-paper bg-ink px-2 font-mono text-[11px] font-bold leading-none text-paper shadow-[0_0_0_5px_rgba(31,27,22,0.07)]";
+  "pin-inner score-badge";
+
+function getScoreBadgeVariant(score: number | null): string {
+  if (score === null) return "is-score-unknown";
+  if (score >= 70) return "is-score-high";
+  if (score >= 40) return "is-score-mid";
+  return "is-score-low";
+}
 
 function TagIcon({ tag }: { tag: TagId }) {
   const index = TAG_IDS.indexOf(tag);
@@ -82,6 +89,65 @@ function computePinOffsets(
   return offsets;
 }
 
+// Repaint the stock Mapbox "light" style into the ontwerp paper world: paper
+// land, a deeper-paper "sea", faint ink roads, ink-soft labels on paper halos.
+// Tones are read from the active theme's CSS variables, so the basemap follows
+// whatever skin the app is pinned to (currently wine). Iterates the live style
+// by layer type so it survives minor style changes — any layer that rejects a
+// given paint property is skipped.
+function applyPaperMapStyle(map: mapboxgl.Map) {
+  const style = map.getStyle();
+  if (!style?.layers) return;
+
+  const css = getComputedStyle(document.documentElement);
+  const tone = (name: string, fallback: string) =>
+    css.getPropertyValue(name).trim() || fallback;
+  // dedicated muted map tones — the wine tint held to a faint wash so the
+  // basemap reads as calm paper rather than glowing red (the full-strength
+  // surface/text tokens were too intense here)
+  const PAPER = tone("--map-land", "#efebeb");
+  const PAPER_WARM = tone("--map-warm", "#eae4e4");
+  const WATER = tone("--map-water", "#e6dede");
+  const ROAD = tone("--map-road", "#cdbcbc");
+  const LABEL = tone("--map-label", "#5c4647");
+
+  for (const layer of style.layers) {
+    const id = layer.id;
+    try {
+      switch (layer.type) {
+        case "background":
+          map.setPaintProperty(id, "background-color", PAPER);
+          break;
+        case "fill":
+          if (/water|ocean|sea|bathymetry/.test(id)) {
+            map.setPaintProperty(id, "fill-color", WATER);
+          } else if (/building/.test(id)) {
+            map.setPaintProperty(id, "fill-color", PAPER_WARM);
+          } else {
+            map.setPaintProperty(id, "fill-color", PAPER);
+          }
+          break;
+        case "fill-extrusion":
+          map.setPaintProperty(id, "fill-extrusion-color", PAPER_WARM);
+          break;
+        case "line":
+          map.setPaintProperty(
+            id,
+            "line-color",
+            /water|river|stream|canal/.test(id) ? WATER : ROAD
+          );
+          break;
+        case "symbol":
+          map.setPaintProperty(id, "text-color", LABEL);
+          map.setPaintProperty(id, "text-halo-color", PAPER);
+          break;
+      }
+    } catch {
+      // layer doesn't accept this paint property — leave it as shipped
+    }
+  }
+}
+
 export default function MapView({ companies, mapboxToken, locale }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -93,9 +159,14 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     selectedTags: [],
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // `isFilterOpen` is intent; `filterVisible` keeps the sheet mounted long
+  // enough to play the stepped exit animation, mirroring the peek card.
+  const [filterVisible, setFilterVisible] = useState(false);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const panelRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const panelDragRef = useRef<{ startY: number; panelH: number } | null>(null);
+  const skipPanelExitRef = useRef(false);
 
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
@@ -219,7 +290,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           } else {
             const el = document.createElement("div");
             el.id = "user-location-marker";
-            el.className = "w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_8px_rgba(59,130,246,0.5)]";
+            el.className = "user-location-marker";
             const marker = new mapboxgl.Marker({ element: el })
               .setLngLat([lng, lat])
               .addTo(map);
@@ -291,6 +362,9 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     });
 
     mapRef.current = map;
+
+    // recolor the basemap into the paper world once the style is ready
+    map.on("load", () => applyPaperMapStyle(map));
 
     // Auto-fit bounds on cold load if no selection
     if (!selectedCompany && companies.length > 0) {
@@ -440,6 +514,8 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
       panel.style.transition = "transform 160ms steps(4, end)";
       const cleanup = () => {
         panel.removeEventListener("transitionend", cleanup);
+        // the drag already animated the sheet out — skip the keyframe exit
+        skipPanelExitRef.current = true;
         setIsFilterOpen(false);
       };
       panel.addEventListener("transitionend", cleanup);
@@ -449,6 +525,41 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
       panel.style.transform = "translateY(0px)";
     }
   };
+
+  // Sync filter intent into the mounted sheet. Opening shows it immediately;
+  // closing (tap-out, ×, Escape) plays the same stepped slide-out + backdrop
+  // fade as the peek card before unmounting. Drag-close skips the keyframe.
+  useEffect(() => {
+    if (isFilterOpen) {
+      setFilterVisible(true);
+      panelRef.current?.classList.remove("is-exiting");
+      backdropRef.current?.classList.remove("is-exiting");
+      return;
+    }
+    if (!filterVisible) return;
+    if (skipPanelExitRef.current) {
+      skipPanelExitRef.current = false;
+      setFilterVisible(false);
+      return;
+    }
+    const panel = panelRef.current;
+    if (!panel) {
+      setFilterVisible(false);
+      return;
+    }
+    // drop any inline drag transforms so the exit keyframe starts cleanly
+    panel.style.transition = "";
+    panel.style.transform = "";
+    panel.style.animation = "";
+    void panel.offsetWidth;
+    panel.classList.add("is-exiting");
+    backdropRef.current?.classList.add("is-exiting");
+    const onEnd = () => {
+      panel.removeEventListener("animationend", onEnd);
+      setFilterVisible(false);
+    };
+    panel.addEventListener("animationend", onEnd);
+  }, [isFilterOpen]);
 
   // Synchronize standard Mapbox markers
   useEffect(() => {
@@ -474,19 +585,19 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           el.id = `cluster-${clusterId}`;
 
           const innerEl = document.createElement("div");
-          innerEl.className = "flex items-center justify-center w-10 h-10 rounded-full bg-ink text-paper border-2 border-paper shadow-md font-mono text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95";
-          innerEl.textContent = String(point_count);
+          innerEl.className = "cluster-badge";
+          innerEl.innerHTML = `<span>${point_count}</span>`;
           el.appendChild(innerEl);
 
           el.addEventListener("click", (e) => {
             e.stopPropagation();
             const expansionZoom = sc.getClusterExpansionZoom(clusterId);
             const targetZoom = Math.min(18, Math.max(Math.round(map.getZoom()) + 2, expansionZoom));
-            console.log("MAPBOX CLUSTER CLICKED!", clusterId, "targetZoom =", targetZoom);
             map.easeTo({
               center: [lng, lat],
               zoom: targetZoom,
-              duration: 300,
+              duration: 160,
+              easing: (t) => (t >= 1 ? 1 : Math.floor(t * 4) / 4),
             });
           });
 
@@ -508,12 +619,12 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           const company = companyById.get(companyId);
           const score = company ? getCompositeScore(company) : null;
           const innerEl = document.createElement("div");
-          innerEl.className = `${PIN_BADGE_CLASS} cursor-pointer transition-all duration-200`;
-          innerEl.innerHTML = `<span aria-hidden="true" class="text-[9px] leading-none">✦</span><span>${score === null ? "?" : String(score)}</span>`;
+          innerEl.className = `${PIN_BADGE_CLASS} ${getScoreBadgeVariant(score)}`;
+          innerEl.innerHTML = `<span aria-hidden="true" class="score-badge-dot"></span><span>${score === null ? "?" : String(score)}</span>`;
           innerEl.setAttribute("data-score-badge", score === null ? "unknown" : String(score));
           
           if (companyId === selectedId) {
-            innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
+            innerEl.classList.add("is-selected");
             el.classList.add("z-50");
           }
 
@@ -543,10 +654,10 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           const innerEl = el.querySelector(".pin-inner");
           if (innerEl) {
             if (companyId === selectedId) {
-              innerEl.classList.add("ring-2", "ring-offset-2", "ring-red", "scale-110");
+              innerEl.classList.add("is-selected");
               el.classList.add("z-50");
             } else {
-              innerEl.classList.remove("ring-2", "ring-offset-2", "ring-red", "scale-110");
+              innerEl.classList.remove("is-selected");
               el.classList.remove("z-50");
             }
           }
@@ -604,10 +715,11 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
 
   return (
     <div className="relative w-full h-full">
+      <div className="map-atmosphere" aria-hidden="true" />
       <div ref={mapContainerRef} id="map-view" className="w-full h-full">
         {!isSupported && (
           <div
-            className="absolute inset-0 bg-[#eee]"
+            className="absolute inset-0 bg-paper-deep"
             onClick={() => updateSelection(null)}
           >
             {fallbackFeatures.map((feature) => {
@@ -630,13 +742,12 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                       e.stopPropagation();
                       const expansionZoom = supercluster!.getClusterExpansionZoom(clusterId);
                       const targetZoom = Math.min(18, Math.max(Math.round(zoom) + 2, expansionZoom));
-                      console.log("FALLBACK CLUSTER CLICKED!", clusterId, "targetZoom =", targetZoom);
                       setZoom(targetZoom);
                     }}
-                    className="absolute flex items-center justify-center w-10 h-10 rounded-full bg-ink text-paper border-2 border-paper shadow-md font-mono text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95 -translate-x-1/2 -translate-y-1/2"
+                    className="absolute cluster-badge -translate-x-1/2 -translate-y-1/2"
                     style={{ left, top }}
                   >
-                    {point_count}
+                    <span>{point_count}</span>
                   </div>
                 );
               } else {
@@ -667,11 +778,9 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                   >
                     <div
                       data-score-badge={score === null ? "unknown" : score}
-                      className={`${PIN_BADGE_CLASS} transition-all duration-200 ${
-                        isSelected ? "ring-2 ring-offset-2 ring-red scale-110" : ""
-                      }`}
+                      className={`${PIN_BADGE_CLASS} ${getScoreBadgeVariant(score)} ${isSelected ? "is-selected" : ""}`}
                     >
-                      <span aria-hidden="true" className="text-[9px] leading-none">✦</span>
+                      <span aria-hidden="true" className="score-badge-dot" />
                       <span>{score === null ? "?" : score}</span>
                     </div>
                   </div>
@@ -687,7 +796,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           id="filtered-empty-state-overlay"
           className="absolute inset-0 z-10 flex items-center justify-center bg-paper/70 pointer-events-none"
         >
-          <div className="paper-grain border border-ink bg-paper-card px-5 py-4 text-center">
+          <div className="ontwerp-card px-5 py-4 text-center">
             <p className="font-mono text-[10px] text-ink-soft">{t("empty_state", locale)}</p>
           </div>
         </div>
@@ -700,7 +809,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         aria-label={t("filters", locale)}
         aria-expanded={isFilterOpen}
         aria-controls="filters-panel"
-        className="absolute top-4 right-4 z-20 inline-flex h-10 w-10 items-center justify-center border border-ink bg-paper/90 text-ink hover:bg-paper-card focus:outline-none focus:ring-2 focus:ring-ink"
+        className="ontwerp-icon-button absolute top-4 right-4 z-20"
       >
         <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -708,27 +817,31 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         {activeFilterCount > 0 && (
           <span
             id="filters-active-count"
-            className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-red px-1 font-mono text-[9px] text-paper"
+            className="filter-count-badge"
           >
             {activeFilterCount}
           </span>
         )}
       </button>
 
-      {isFilterOpen && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-end bg-ink/10" onClick={() => setIsFilterOpen(false)}>
+      {filterVisible && createPortal(
+        <div
+          ref={backdropRef}
+          className="filter-backdrop fixed inset-0 z-[60] flex items-end"
+          onClick={() => setIsFilterOpen(false)}
+        >
           <section
             ref={panelRef}
             id="filters-panel"
             role="dialog"
             aria-modal="true"
             aria-label={t("filters", locale)}
-            className="filter-sheet paper-grain max-h-[82vh] w-full overflow-y-auto border-t border-ink/20 bg-paper-card px-4 pb-6 shadow-[0_-12px_32px_rgba(31,27,22,0.18)] will-change-transform"
+            className="filter-sheet ontwerp-sheet max-h-[82vh] w-full overflow-y-auto px-4 pb-6 will-change-transform"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 -mx-4 bg-paper-card px-4 pb-3 border-b border-ink/10">
+            <div className="sticky top-0 z-10 -mx-4 border-b border-border-quiet bg-[var(--filter-surface)] px-4 pt-2.5 pb-3">
               <div
-                className="mx-auto flex h-7 w-20 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
+                className="mx-auto mb-2 flex h-7 w-20 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
                 onPointerDown={onPanelHandlePointerDown}
                 onPointerMove={onPanelHandlePointerMove}
                 onPointerUp={onPanelHandlePointerUp}
@@ -736,7 +849,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                 aria-label={t("drag_handle", locale)}
                 role="button"
               >
-                <div className="h-1 w-12 bg-ink/30" />
+                <div className="drag-handle-bar" />
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -751,7 +864,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                     type="button"
                     onClick={resetFilters}
                     disabled={!filtersActive}
-                    className="inline-flex h-9 items-center border border-ink/20 bg-paper px-3 font-mono text-[9px] text-ink disabled:opacity-40"
+                    className="ontwerp-button h-9"
                   >
                     reset
                   </button>
@@ -759,7 +872,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                     type="button"
                     onClick={() => setIsFilterOpen(false)}
                     aria-label="sluit filters"
-                    className="flex h-9 w-9 items-center justify-center border border-ink/20 bg-paper text-ink"
+                    className="ontwerp-icon-button is-compact"
                   >
                     ×
                   </button>
@@ -775,7 +888,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                 const value = filters.axisMinimums[axis] ?? 0;
 
                 return (
-                  <section key={axis} data-axis-filter={axis} className="border border-ink/15 bg-paper/70 p-3">
+                  <section key={axis} data-axis-filter={axis} className="ontwerp-card p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <h3 className="font-mono text-[9px] text-ink-soft">{getAxisLabel(axis, locale)}</h3>
                       <span className="font-mono text-[9px] text-red-dark">{value === 0 ? "geen voorkeur" : `min ${value}`}</span>
@@ -822,7 +935,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                           step="10"
                           value={value}
                           onChange={(event) => updateAxisMinimum(axis, Number(event.currentTarget.value))}
-                          className="w-full accent-red"
+                          className="filter-range w-full"
                         />
                       </div>
                     </div>
@@ -844,11 +957,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                         data-tag-filter={tag}
                         aria-pressed={selected}
                         onClick={() => toggleTag(tag)}
-                        className={`inline-flex items-center gap-1.5 border px-2.5 py-2 text-[12px] ${
-                          selected
-                            ? "border-red bg-red-soft text-red-dark"
-                            : "border-ink/15 bg-paper text-ink-soft"
-                        }`}
+                        className="filter-chip"
                       >
                         <TagIcon tag={tag} />
                         <span>{getTagLabel(tag, locale)}</span>
@@ -858,7 +967,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                   })}
                 </div>
               ) : (
-                <p id="tags-empty-state" className="border border-ink/15 bg-paper/70 p-3 text-[12px] text-ink-quiet">
+                <p id="tags-empty-state" className="ontwerp-card p-3 text-[12px] text-ink-quiet">
                   nog geen tags in de huidige data
                 </p>
               )}
@@ -871,7 +980,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
       <button
         id="geolocate-button"
         onClick={handleGeolocate}
-        className="absolute bottom-6 right-6 z-10 flex items-center justify-center w-10 h-10 bg-paper/85 text-ink-soft border border-ink/25 hover:bg-paper hover:text-ink hover:border-ink/40 active:scale-95 transition-all cursor-pointer"
+        className="ontwerp-icon-button absolute bottom-6 right-6 z-10"
         aria-label="get current location"
       >
         <svg
@@ -896,7 +1005,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
       {userLocation && !isSupported && (
         <div
           id="user-location-marker"
-          className="absolute w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_8px_rgba(59,130,246,0.5)] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          className="user-location-marker absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
           style={{
             left: `${Math.max(10, Math.min(90, ((userLocation.lng - 4.8) / 0.6) * 100))}%`,
             top: `${Math.max(10, Math.min(90, (1 - (userLocation.lat - 52.0) / 0.4) * 100))}%`,

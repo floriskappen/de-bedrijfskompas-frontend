@@ -9,7 +9,7 @@ export const messages = {
     address_fallback: "onbekende locatie",
     coming_soon: "binnenkort beschikbaar",
     filters: "filters",
-    in_het_echt: "in het echt",
+    in_het_echt: "wat ze doen",
     drag_handle: "sleep om te sluiten",
   },
   en: {
@@ -22,7 +22,7 @@ export const messages = {
     address_fallback: "unknown location",
     coming_soon: "coming soon",
     filters: "filters",
-    in_het_echt: "in real life",
+    in_het_echt: "what they do",
     drag_handle: "drag to close",
   },
 } as const;

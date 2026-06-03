@@ -23,20 +23,20 @@ const locale = "en";
 <Layout title={`${company.name.toLowerCase()} — ${t("coming_soon", locale)}`}>
   <main class="min-h-screen flex flex-col items-center justify-center p-6 bg-paper-warm text-ink">
     <div class="max-w-md w-full text-center space-y-6">
-      <h1 class="text-3xl font-bold tracking-tight lowercase">
+      <h1 class="text-3xl font-bold lowercase">
         {company.name.toLowerCase()}
       </h1>
       
       <div class="h-px bg-ink/10 w-24 mx-auto"></div>
 
-      <p class="text-sm font-mono tracking-tight text-ink/65 lowercase">
+      <p class="text-sm font-mono text-ink-soft lowercase">
         {t("coming_soon", locale)}
       </p>
 
       <div class="pt-4">
         <a
           href="/en/"
-          class="inline-flex items-center justify-center px-4 py-2 border border-ink/10 rounded-xl text-sm hover:bg-ink/5 transition-all lowercase"
+          class="ontwerp-button"
         >
           back to the map
         </a>

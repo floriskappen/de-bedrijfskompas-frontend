@@ -188,7 +188,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
     <div
       ref={cardRef}
       id="peek-card"
-      className="peek-card-enter w-full max-w-lg mx-auto bg-paper-card paper-grain border-t border-x border-ink/15 shadow-[0_-8px_24px_rgba(31,27,22,0.10)] px-5 pt-2.5 pb-9 pointer-events-auto will-change-transform"
+      className="peek-card-enter ontwerp-card is-warm w-full max-w-lg mx-auto px-5 pt-2.5 pb-9 pointer-events-auto will-change-transform"
     >
       {/* drag handle (enlarged hit area; visible bar centred inside) */}
       <div
@@ -200,13 +200,13 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
         aria-label={t("drag_handle", locale)}
         role="button"
       >
-        <div className="h-1 w-10 rounded-sm bg-ink/20" />
+        <div className="drag-handle-bar" />
       </div>
 
       {/* header row: monogram + name + locality/distance */}
       <div className="mb-3.5 flex items-center gap-3">
         {company.favicon_url && !faviconFailed ? (
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-paper border border-ink/15">
+          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center border border-border-quiet bg-[var(--wash-wine)]">
             <img
               src={company.favicon_url}
               alt=""
@@ -226,7 +226,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
         <div className="min-w-0 flex-1">
           <h2
             id="peek-card-title"
-            className="font-sans text-[26px] leading-none tracking-tight text-ink normal-case"
+            className="font-sans text-[26px] leading-none text-ink normal-case"
           >
             {company.name}
           </h2>
@@ -237,9 +237,9 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
         </div>
       </div>
 
-      {/* "in het echt" callout */}
-      <div className="mb-3.5 bg-red-soft px-3.5 py-3">
-        <div className="mb-1 font-mono text-[9.5px] tracking-[0.15em] uppercase text-red-dark">
+      {/* "wat ze doen" callout */}
+      <div className="peek-callout mb-3.5 px-3.5 py-3">
+        <div className="mb-1 font-mono text-[9.5px] text-red-dark">
           {t("in_het_echt", locale)}
         </div>
         <div className="font-sans text-[16px] leading-snug text-ink">{tagline}</div>
@@ -254,7 +254,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
       <div className="flex gap-2">
         <a
           href={ctaUrl}
-          className="flex h-12 flex-1 items-center justify-center gap-2 bg-ink px-4 font-sans text-[14px] font-medium tracking-[0.01em] text-paper hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ink transition-opacity"
+          className="ontwerp-button is-accent h-12 flex-1"
         >
           {t("cta", locale)}
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -268,7 +268,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
           </svg>
         </a>
         <button
-          className="flex h-12 w-12 items-center justify-center border border-ink/20 bg-transparent text-ink hover:bg-ink/5 focus:outline-none focus:ring-2 focus:ring-ink"
+          className="ontwerp-icon-button is-large"
           aria-label={t("bookmark_label", locale)}
           type="button"
         >
