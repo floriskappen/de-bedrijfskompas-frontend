@@ -4,31 +4,28 @@ export type EvidenceLevel = "well_evidenced" | "partial" | "no_signal";
 
 export const AXIS_IDS: AxisId[] = ["substance", "ecology", "power", "embeddedness", "posture"];
 
-export const TAG_IDS = [
-  "software-engineering",
-  "data-ai",
-  "hardware-electronics",
-  "mechanical-civil-engineering",
-  "life-sciences",
-  "earth-environmental-sciences",
-  "clinical-care",
-  "design-creative",
-  "content-media",
-  "commercial",
-  "finance-accounting",
-  "legal-compliance",
-  "policy-public-administration",
-  "operations-supply-chain",
-  "people-org",
-  "field-trades-operators",
+export const DOMAIN_GROUP_IDS = [
   "education-training",
-  "service-hospitality",
-  "community-social",
+  "health-care",
+  "engineering-technical",
+  "software-it",
+  "science-research",
+  "business-finance-admin",
+  "sales-commercial",
+  "creative-media-culture",
+  "legal-policy",
+  "trades-construction",
+  "production-logistics",
+  "agriculture-environment",
+  "hospitality-personal-service",
+  "management-leadership",
+  "public-safety-defense",
 ] as const;
 
-export type TagId = (typeof TAG_IDS)[number];
+export type DomainGroupId = (typeof DOMAIN_GROUP_IDS)[number];
 
 export type TagProminence = "core" | "supporting" | "incidental";
+export type TagConfidence = "high" | "low";
 
 export interface ScoreDetail {
   score: number | null;
@@ -59,8 +56,9 @@ export interface LocaleBlock {
 }
 
 export interface CapabilityTag {
-  family: TagId;
+  isco_code: string;
   prominence: TagProminence;
+  confidence?: TagConfidence;
 }
 
 export interface Company {

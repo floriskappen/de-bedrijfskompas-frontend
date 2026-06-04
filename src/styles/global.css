@@ -161,13 +161,12 @@ em {
   background-size: 600px 600px, auto;
 }
 
-/* the peek card sits on the map as a tactile paper sheet, on the very same wine
-   page surface as everything else; its drop shadow (.peek-card-float) does the
-   lifting, not a different background colour. */
+/* the peek card shares the filter header's warm overlay surface; its drop
+   shadow (.peek-card-float) does the lifting, not a different background colour. */
 .ontwerp-card.is-warm {
   background:
     url("/paper-grain-soft.svg"),
-    var(--color-surface-page);
+    var(--filter-surface);
   background-size: 600px 600px, auto;
 }
 

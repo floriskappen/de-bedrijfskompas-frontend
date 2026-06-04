@@ -1,11 +1,12 @@
-import type { AxisId, Company, TagId } from "./types";
-import { AXIS_IDS, TAG_IDS } from "./types";
+import type { AxisId, Company, DomainGroupId } from "./types";
+import { AXIS_IDS, DOMAIN_GROUP_IDS } from "./types";
+import { getDomainGroupsForCapabilityTags } from "./isco";
 
 export type AxisMinimums = Record<AxisId, number>;
 
 export interface CompanyFilters {
   axisMinimums: AxisMinimums;
-  selectedTags: TagId[];
+  selectedDomains: DomainGroupId[];
 }
 
 export type HistogramBucketId = "unknown" | "0" | "10" | "20" | "30" | "40" | "50" | "60" | "70" | "80" | "90";
@@ -27,12 +28,12 @@ export const DEFAULT_AXIS_MINIMUMS: AxisMinimums = {
 
 export const EMPTY_FILTERS: CompanyFilters = {
   axisMinimums: DEFAULT_AXIS_MINIMUMS,
-  selectedTags: [],
+  selectedDomains: [],
 };
 
-export function getCompanyTags(company: Pick<Company, "capability_tags">): TagId[] {
+export function getCompanyDomainGroups(company: Pick<Company, "capability_tags">): DomainGroupId[] {
   const tags = Array.isArray(company.capability_tags) ? company.capability_tags : [];
-  return tags.map((tag) => tag.family);
+  return getDomainGroupsForCapabilityTags(tags);
 }
 
 export function getCompositeScore(company: Pick<Company, "scores">): number | null {
@@ -57,12 +58,12 @@ export function matchesAxisMinimum(
   return typeof score === "number" && score >= minimum;
 }
 
-export function matchesSelectedTags(
+export function matchesSelectedDomains(
   company: Pick<Company, "capability_tags">,
-  selectedTags: TagId[]
+  selectedDomains: DomainGroupId[]
 ): boolean {
-  const tags = new Set(getCompanyTags(company));
-  return selectedTags.every((tag) => tags.has(tag));
+  const domains = new Set(getCompanyDomainGroups(company));
+  return selectedDomains.every((domain) => domains.has(domain));
 }
 
 export function matchesCompanyFilters(company: Company, filters: CompanyFilters): boolean {
@@ -70,7 +71,7 @@ export function matchesCompanyFilters(company: Company, filters: CompanyFilters)
     matchesAxisMinimum(company, axis, filters.axisMinimums[axis] ?? 0)
   );
 
-  return matchesAxes && matchesSelectedTags(company, filters.selectedTags);
+  return matchesAxes && matchesSelectedDomains(company, filters.selectedDomains);
 }
 
 export function filterCompanies(companies: Company[], filters: CompanyFilters): Company[] {
@@ -115,32 +116,32 @@ export function getCompaniesForAxisFacet(
   });
 }
 
-export function getCompaniesForTagFacet(
+export function getCompaniesForDomainFacet(
   companies: Company[],
   filters: CompanyFilters,
-  tag: TagId
+  domain: DomainGroupId
 ): Company[] {
   return filterCompanies(companies, {
     ...filters,
-    selectedTags: filters.selectedTags.filter((selectedTag) => selectedTag !== tag),
+    selectedDomains: filters.selectedDomains.filter((selectedDomain) => selectedDomain !== domain),
   });
 }
 
-export function getTagCounts(companies: Company[], filters: CompanyFilters): Record<TagId, number> {
-  return TAG_IDS.reduce(
-    (counts, tag) => {
-      counts[tag] = getCompaniesForTagFacet(companies, filters, tag).filter((company) =>
-        getCompanyTags(company).includes(tag)
+export function getDomainGroupCounts(companies: Company[], filters: CompanyFilters): Record<DomainGroupId, number> {
+  return DOMAIN_GROUP_IDS.reduce(
+    (counts, domain) => {
+      counts[domain] = getCompaniesForDomainFacet(companies, filters, domain).filter((company) =>
+        getCompanyDomainGroups(company).includes(domain)
       ).length;
       return counts;
     },
-    {} as Record<TagId, number>
+    {} as Record<DomainGroupId, number>
   );
 }
 
 export function hasActiveFilters(filters: CompanyFilters): boolean {
   return (
-    filters.selectedTags.length > 0 ||
+    filters.selectedDomains.length > 0 ||
     AXIS_IDS.some((axis) => (filters.axisMinimums[axis] ?? 0) > 0)
   );
 }

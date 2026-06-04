@@ -3,12 +3,20 @@ import type { Company } from "./types";
 import {
   DEFAULT_AXIS_MINIMUMS,
   filterCompanies,
+  getCompanyDomainGroups,
   getCompositeScore,
+  getDomainGroupCounts,
   getHistogramBuckets,
-  getTagCounts,
   matchesAxisMinimum,
-  matchesSelectedTags,
+  matchesSelectedDomains,
 } from "./filters";
+import {
+  getDomainGroupsForIscoCode,
+  getIscoSubMajorCode,
+  getUnmappedSubMajorCodes,
+  ISCO_SUB_MAJOR_CODES,
+  SUB_MAJOR_DOMAIN_GROUPS,
+} from "./isco";
 
 const makeCompany = (overrides: Partial<Company> = {}): Company => ({
   company_id: "company",
@@ -87,16 +95,38 @@ describe("company filter helpers", () => {
     expect(matchesAxisMinimum(company, "power", 5)).toBe(false);
   });
 
-  it("tag filters combine with AND semantics", () => {
+  it("domain filters combine with AND semantics", () => {
     const company = makeCompany({
       capability_tags: [
-        { family: "software-engineering", prominence: "core" },
-        { family: "commercial", prominence: "supporting" },
+        { isco_code: "251", prominence: "core" },
+        { isco_code: "243", prominence: "supporting" },
       ],
     });
 
-    expect(matchesSelectedTags(company, ["software-engineering", "commercial"])).toBe(true);
-    expect(matchesSelectedTags(company, ["software-engineering", "finance-accounting"])).toBe(false);
+    expect(matchesSelectedDomains(company, ["software-it", "sales-commercial"])).toBe(true);
+    expect(matchesSelectedDomains(company, ["software-it", "business-finance-admin"])).toBe(false);
+  });
+
+  it("projects minor ISCO codes through sub-major work fields", () => {
+    const company = makeCompany({
+      capability_tags: [
+        { isco_code: "251", prominence: "core" },
+        { isco_code: "216", prominence: "supporting" },
+      ],
+    });
+
+    expect(getIscoSubMajorCode("251")).toBe("25");
+    expect(getDomainGroupsForIscoCode("216")).toEqual(["engineering-technical", "creative-media-culture"]);
+    expect(getCompanyDomainGroups(company)).toEqual([
+      "software-it",
+      "engineering-technical",
+      "creative-media-culture",
+    ]);
+  });
+
+  it("domain projection covers every ISCO sub-major group", () => {
+    expect(getUnmappedSubMajorCodes()).toEqual([]);
+    expect(Object.keys(SUB_MAJOR_DOMAIN_GROUPS).sort()).toEqual([...ISCO_SUB_MAJOR_CODES].sort());
   });
 
   it("histogram includes unknown bucket", () => {
@@ -123,29 +153,29 @@ describe("company filter helpers", () => {
       makeCompany({
         company_id: "a",
         capability_tags: [
-          { family: "commercial", prominence: "core" },
-          { family: "software-engineering", prominence: "supporting" },
+          { isco_code: "243", prominence: "core" },
+          { isco_code: "251", prominence: "supporting" },
         ],
       }),
       makeCompany({
         company_id: "b",
         capability_tags: [
-          { family: "commercial", prominence: "core" },
-          { family: "data-ai", prominence: "supporting" },
+          { isco_code: "243", prominence: "core" },
+          { isco_code: "213", prominence: "supporting" },
         ],
       }),
       makeCompany({
         company_id: "c",
-        capability_tags: [{ family: "software-engineering", prominence: "core" }],
+        capability_tags: [{ isco_code: "251", prominence: "core" }],
       }),
     ];
     const filters = {
       axisMinimums: DEFAULT_AXIS_MINIMUMS,
-      selectedTags: ["commercial" as const],
+      selectedDomains: ["sales-commercial" as const],
     };
 
     expect(filterCompanies(companies, filters).map((company) => company.company_id)).toEqual(["a", "b"]);
-    expect(getTagCounts(companies, filters)["software-engineering"]).toBe(1);
-    expect(getTagCounts(companies, filters)["data-ai"]).toBe(1);
+    expect(getDomainGroupCounts(companies, filters)["software-it"]).toBe(1);
+    expect(getDomainGroupCounts(companies, filters)["science-research"]).toBe(1);
   });
 });

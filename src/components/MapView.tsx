@@ -3,20 +3,21 @@ import { createPortal } from "react-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Supercluster from "supercluster";
-import type { AxisId, Company, TagId } from "../lib/company-data/types";
-import { AXIS_IDS, TAG_IDS } from "../lib/company-data/types";
+import type { AxisId, Company, DomainGroupId } from "../lib/company-data/types";
+import { AXIS_IDS, DOMAIN_GROUP_IDS } from "../lib/company-data/types";
 import {
   DEFAULT_AXIS_MINIMUMS,
   filterCompanies,
   getCompaniesForAxisFacet,
   getCompositeScore,
+  getDomainGroupCounts,
   getHistogramBuckets,
-  getTagCounts,
   hasActiveFilters,
   type CompanyFilters,
 } from "../lib/company-data/filters";
 import { t } from "../lib/i18n";
-import { getAxisLabel, getTagLabel } from "../lib/i18n/labels";
+import { getAxisLabel, getDomainGroupLabel } from "../lib/i18n/labels";
+import { DOMAIN_ICON_PATHS } from "../lib/company-data/domain-icons";
 
 interface MapViewProps {
   companies: Company[];
@@ -34,18 +35,16 @@ function getScoreBadgeVariant(score: number | null): string {
   return "is-score-low";
 }
 
-function TagIcon({ tag }: { tag: TagId }) {
-  const index = TAG_IDS.indexOf(tag);
-  const variant = index % 6;
-
+function DomainIcon({ domain }: { domain: DomainGroupId }) {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      {variant === 0 && <path d="M5 3 2 7l3 4M9 3l3 4-3 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />}
-      {variant === 1 && <path d="M3 10V6m4 4V3m4 7V5M2 11h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />}
-      {variant === 2 && <path d="M3 4h8v6H3zM5 2v2m4-2v2M5 10v2m4-2v2M1 6h2m8 0h2M1 8h2m8 0h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />}
-      {variant === 3 && <path d="M7 2v10M3 5l4-3 4 3M3 9l4 3 4-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />}
-      {variant === 4 && <path d="M5 2h4M6 2v3l-3 6h8L8 5V2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />}
-      {variant === 5 && <path d="M7 12c3-2 4-5 4-9-3 0-6 1-8 4 0 3 2 5 4 5Zm0 0V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />}
+      <path
+        d={DOMAIN_ICON_PATHS[domain]}
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -97,7 +96,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [filters, setFilters] = useState<CompanyFilters>({
     axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
-    selectedTags: [],
+    selectedDomains: [],
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   // `isFilterOpen` is intent; `filterVisible` keeps the sheet mounted long
@@ -132,11 +131,11 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     [companies]
   );
   const pinOffsets = useMemo(() => computePinOffsets(filteredCompanies), [filteredCompanies]);
-  const tagCounts = useMemo(() => getTagCounts(companies, filters), [companies, filters]);
+  const domainCounts = useMemo(() => getDomainGroupCounts(companies, filters), [companies, filters]);
   const filtersActive = hasActiveFilters(filters);
   const activeFilterCount = useMemo(
     () =>
-      filters.selectedTags.length +
+      filters.selectedDomains.length +
       AXIS_IDS.filter((axis) => (filters.axisMinimums[axis] ?? 0) > 0).length,
     [filters]
   );
@@ -200,7 +199,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
             ...current.axisMinimums,
             ...(nextFilters.axisMinimums ?? {}),
           },
-          selectedTags: nextFilters.selectedTags ?? current.selectedTags,
+          selectedDomains: nextFilters.selectedDomains ?? current.selectedDomains,
         }));
       };
     }
@@ -401,15 +400,15 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     }));
   };
 
-  const toggleTag = (tag: TagId) => {
+  const toggleDomain = (domain: DomainGroupId) => {
     setFilters((current) => {
-      const selectedTags = current.selectedTags.includes(tag)
-        ? current.selectedTags.filter((selectedTag) => selectedTag !== tag)
-        : [...current.selectedTags, tag];
+      const selectedDomains = current.selectedDomains.includes(domain)
+        ? current.selectedDomains.filter((selectedDomain) => selectedDomain !== domain)
+        : [...current.selectedDomains, domain];
 
       return {
         ...current,
-        selectedTags,
+        selectedDomains,
       };
     });
   };
@@ -417,7 +416,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const resetFilters = () => {
     setFilters({
       axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
-      selectedTags: [],
+      selectedDomains: [],
     });
   };
 
@@ -649,7 +648,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const fallbackFeatures = !isSupported && supercluster
     ? supercluster.getClusters([-180, -90, 180, 90], Math.round(zoom))
     : [];
-  const selectedTagSet = new Set(filters.selectedTags);
+  const selectedDomainSet = new Set(filters.selectedDomains);
 
   return (
     <div className="relative w-full h-full">
@@ -883,30 +882,30 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
             </div>
 
             <section className="mt-5">
-              <h3 className="mb-2 font-mono text-[10px] text-ink-soft">tags</h3>
-              {TAG_IDS.some((tag) => tagCounts[tag] > 0 || selectedTagSet.has(tag)) ? (
+              <h3 className="mb-2 font-mono text-[10px] text-ink-soft">{t("work_fields", locale)}</h3>
+              {DOMAIN_GROUP_IDS.some((domain) => domainCounts[domain] > 0 || selectedDomainSet.has(domain)) ? (
                 <div className="flex flex-wrap gap-2">
-                  {TAG_IDS.filter((tag) => tagCounts[tag] > 0 || selectedTagSet.has(tag)).map((tag) => {
-                    const selected = selectedTagSet.has(tag);
+                  {DOMAIN_GROUP_IDS.filter((domain) => domainCounts[domain] > 0 || selectedDomainSet.has(domain)).map((domain) => {
+                    const selected = selectedDomainSet.has(domain);
                     return (
                       <button
-                        key={tag}
+                        key={domain}
                         type="button"
-                        data-tag-filter={tag}
+                        data-domain-filter={domain}
                         aria-pressed={selected}
-                        onClick={() => toggleTag(tag)}
+                        onClick={() => toggleDomain(domain)}
                         className="filter-chip"
                       >
-                        <TagIcon tag={tag} />
-                        <span>{getTagLabel(tag, locale)}</span>
-                        <span className="font-mono text-[9px]">{tagCounts[tag]}</span>
+                        <DomainIcon domain={domain} />
+                        <span>{getDomainGroupLabel(domain, locale)}</span>
+                        <span className="font-mono text-[9px]">{domainCounts[domain]}</span>
                       </button>
                     );
                   })}
                 </div>
               ) : (
-                <p id="tags-empty-state" className="ontwerp-card p-3 text-[12px] text-ink-quiet">
-                  nog geen tags in de huidige data
+                <p id="domains-empty-state" className="ontwerp-card p-3 text-[12px] text-ink-quiet">
+                  {t("work_fields_empty", locale)}
                 </p>
               )}
             </section>

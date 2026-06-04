@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { DOMAIN_ICON_PATHS } from "../src/lib/company-data/domain-icons";
 
 test.describe("map-overview E2E tests", () => {
   
@@ -275,8 +276,8 @@ test.describe("map-overview E2E tests", () => {
     await page.goto("/?selected=land-life-company");
 
     const peekCardBackground = await page.locator("#peek-card").evaluate((el) => getComputedStyle(el).backgroundColor);
-    // wine theme page surface
-    expect(peekCardBackground).toBe("rgb(242, 231, 231)");
+    // shared warm overlay surface used by the filter panel header
+    expect(peekCardBackground).toBe("rgb(246, 240, 240)");
 
     const bookmark = page.locator('#peek-card button[aria-label="voeg bladwijzer toe"]');
     const close = page.locator('#peek-card button[aria-label="sluiten"]');
@@ -411,14 +412,14 @@ test.describe("map-overview E2E tests", () => {
 
   test("reset clears active filters", async ({ page }) => {
     await page.goto("/");
-    await setTestFilters(page, { axisMinimums: { power: 5 }, selectedTags: ["commercial"] });
+    await setTestFilters(page, { axisMinimums: { power: 5 }, selectedDomains: ["sales-commercial"] });
     await expect(page.locator("#filters-active-count")).toHaveText("2");
     await expect(page.locator("#filters-active-count")).toHaveClass(/filter-count-badge/);
 
     await page.locator("#filters-button").click();
 
-    await expect(page.locator('[data-tag-filter="commercial"]')).toHaveAttribute("aria-pressed", "true");
-    const activeTagStyle = await page.locator('[data-tag-filter="commercial"]').evaluate((el) => {
+    await expect(page.locator('[data-domain-filter="sales-commercial"]')).toHaveAttribute("aria-pressed", "true");
+    const activeTagStyle = await page.locator('[data-domain-filter="sales-commercial"]').evaluate((el) => {
       const style = getComputedStyle(el);
       return {
         borderBottomWidth: style.borderBottomWidth,
@@ -430,7 +431,7 @@ test.describe("map-overview E2E tests", () => {
     await page.locator("#filters-reset").click();
 
     await expect(page.locator('input[aria-label="macht minimum"]')).toHaveValue("0");
-    await expect(page.locator('[data-tag-filter="commercial"]')).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator('[data-domain-filter="sales-commercial"]')).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("#filters-active-count")).toHaveCount(0);
   });
 
@@ -481,26 +482,27 @@ test.describe("map-overview E2E tests", () => {
     expect(after).toBeLessThanOrEqual(before);
   });
 
-  test("tag counts update with active filters", async ({ page }) => {
+  test("work-field counts update with active filters", async ({ page }) => {
     await page.goto("/");
     await page.locator("#filters-button").click();
 
     // data carries capability tags, so chips render rather than the empty state
-    await expect(page.locator("#tags-empty-state")).toHaveCount(0);
-    const commercial = page.locator('[data-tag-filter="commercial"]');
-    await expect(commercial).toBeVisible();
+    await expect(page.locator("#domains-empty-state")).toHaveCount(0);
+    const sales = page.locator('[data-domain-filter="sales-commercial"]');
+    await expect(sales).toBeVisible();
+    await expect(sales.locator("svg path")).toHaveAttribute("d", DOMAIN_ICON_PATHS["sales-commercial"]);
 
-    await setTestFilters(page, { selectedTags: ["commercial"] });
-    await expect(commercial).toHaveAttribute("aria-pressed", "true");
+    await setTestFilters(page, { selectedDomains: ["sales-commercial"] });
+    await expect(sales).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#filters-active-count")).toHaveText("1");
   });
 
-  test("no tags data shows empty tag section", async ({ page }) => {
+  test("no work-field data shows empty work-field section", async ({ page }) => {
     await page.goto("/test-no-tags");
     await page.locator("#filters-button").click();
 
-    await expect(page.locator("#tags-empty-state")).toHaveText("nog geen tags in de huidige data");
-    await expect(page.locator("[data-tag-filter]")).toHaveCount(0);
+    await expect(page.locator("#domains-empty-state")).toHaveText("nog geen werkvelden in de huidige data");
+    await expect(page.locator("[data-domain-filter]")).toHaveCount(0);
   });
 
   test("filter panel layers above an open peek card", async ({ page }) => {

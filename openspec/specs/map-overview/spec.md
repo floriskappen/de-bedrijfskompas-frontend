@@ -92,7 +92,7 @@ Each unclustered company pin SHALL render a compact composite-score badge instea
 
 ### Requirement: Map filtering
 
-The map SHALL filter visible companies by active axis minimums and selected tags. Each axis filter has a minimum in `[0, 100]`; a minimum of `0` means no preference and MUST include companies with `null` for that axis, while any minimum above `0` MUST require a numeric score greater than or equal to that minimum. Selected tags MUST combine with AND semantics: a company matches only when it contains every selected tag. Filtering MUST update markers, clusters, and the empty state without changing the `selected` URL parameter.
+The map SHALL filter visible companies by active axis minimums and selected work fields. Each axis filter has a minimum in `[0, 100]`; a minimum of `0` means no preference and MUST include companies with `null` for that axis, while any minimum above `0` MUST require a numeric score greater than or equal to that minimum. Selected work fields MUST combine with AND semantics: a company matches only when its ISCO minor-code projections include every selected work field. Filtering MUST update markers, clusters, and the empty state without changing the `selected` URL parameter.
 
 #### Scenario: Axis minimum keeps unknowns at zero
 
@@ -104,10 +104,10 @@ The map SHALL filter visible companies by active axis minimums and selected tags
 - **WHEN** the power minimum is `5`
 - **THEN** companies with `scores.power.score: null` are hidden from markers and clusters
 
-#### Scenario: Tag filters combine with AND semantics
+#### Scenario: Work-field filters combine with AND semantics
 
-- **WHEN** `software-engineering` and `commercial` are both selected
-- **THEN** only companies containing both tags remain visible
+- **WHEN** `software-it` and `sales-commercial` are both selected
+- **THEN** only companies whose projected work fields include both values remain visible
 
 #### Scenario: Filtering clears hidden selection
 
@@ -116,7 +116,7 @@ The map SHALL filter visible companies by active axis minimums and selected tags
 
 ### Requirement: Filter panel
 
-The map SHALL expose an icon-only filters button in the top-right map chrome. Activating it SHALL open a bottom-sheet panel with a stepped slide-up animation. When filters are active, the button SHALL show a small active-filter count badge. The panel SHALL contain per-axis minimum sliders, score distribution histograms, tag chips with counts, and a reset affordance. Axis minimum sliders SHALL sit under the numeric histogram buckets and MUST NOT include the unknown bucket in the slider track. If the current company data contains no tags, the tag section SHALL show a quiet no-tags message instead of zero-count chips. The panel MUST be operable on mobile viewports and MUST respect reduced-motion preferences by opening directly without stepped motion. When a peek card is open, the filter panel SHALL render above both the peek card and the map markers. The panel's header controls (reset and close) SHALL remain visible and operable while the panel body scrolls, and SHALL share a common height. The panel header SHALL also be draggable downward to dismiss the panel. Axis and tag chip labels SHALL be localized to the active locale, while tag identifiers remain locale-neutral.
+The map SHALL expose an icon-only filters button in the top-right map chrome. Activating it SHALL open a bottom-sheet panel with a stepped slide-up animation. When filters are active, the button SHALL show a small active-filter count badge. The panel SHALL contain per-axis minimum sliders, score distribution histograms, work-field chips with counts, and a reset affordance. Axis minimum sliders SHALL sit under the numeric histogram buckets and MUST NOT include the unknown bucket in the slider track. If the current company data contains no projected work fields, the work-field section SHALL show a quiet empty message instead of zero-count chips. The panel MUST be operable on mobile viewports and MUST respect reduced-motion preferences by opening directly without stepped motion. When a peek card is open, the filter panel SHALL render above both the peek card and the map markers. The panel's header controls (reset and close) SHALL remain visible and operable while the panel body scrolls, and SHALL share a common height. The panel header SHALL also be draggable downward to dismiss the panel. Axis and work-field chip labels SHALL be localized to the active locale, while ISCO codes and work-field identifiers remain locale-neutral.
 
 #### Scenario: Icon-only filter button opens panel
 
@@ -125,18 +125,18 @@ The map SHALL expose an icon-only filters button in the top-right map chrome. Ac
 
 #### Scenario: Reset clears active filters
 
-- **WHEN** active score or tag filters exist and the user activates reset
-- **THEN** all axis minimums return to `0`, all tags are deselected, and every otherwise renderable company is visible
+- **WHEN** active score or work-field filters exist and the user activates reset
+- **THEN** all axis minimums return to `0`, all work fields are deselected, and every otherwise renderable company is visible
 
 #### Scenario: Active filters are counted on button
 
-- **WHEN** one axis minimum and one tag filter are active
+- **WHEN** one axis minimum and one work-field filter are active
 - **THEN** the filters button shows an active count of `2`
 
-#### Scenario: No tags data shows empty tag section
+#### Scenario: No work-field data shows empty section
 
-- **WHEN** the current company data contains no tag values
-- **THEN** the tag section shows that there are no tags in the current data and does not render zero-count tag chips
+- **WHEN** the current company data contains no projected work-field values
+- **THEN** the work-field section shows that there are no work fields in the current data and does not render zero-count chips
 
 #### Scenario: Filter panel layers above an open peek card
 
@@ -156,11 +156,11 @@ The map SHALL expose an icon-only filters button in the top-right map chrome. Ac
 #### Scenario: Reduced motion skips panel animation
 
 - **WHEN** a user whose system preference is reduced motion opens the filter panel
-- **THEN** the panel appears directly in its open state without stepped slide motion
+- **THEN** the panel appears directly in its open state without stepped motion
 
 ### Requirement: Filter distributions and counts
 
-Each score filter SHALL show a leftmost unknown bucket for `null` scores and ten numeric histogram buckets covering `0-9`, `10-19`, `20-29`, `30-39`, `40-49`, `50-59`, `60-69`, `70-79`, `80-89`, and `90-100`. Numeric sliders MUST map directly to bucket starts `0`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, and `90`; setting the slider to `50` means a minimum score of `50`. Histogram counts MAY update against the current filter combination while excluding the facet currently being counted, but histogram bar height MUST use a stable scale from the unfiltered data so filtering companies out never makes another bucket visually grow. Tag chips SHALL show a count and MUST update against the current filter combination while excluding the tag currently being counted.
+Each score filter SHALL show a leftmost unknown bucket for `null` scores and ten numeric histogram buckets covering `0-9`, `10-19`, `20-29`, `30-39`, `40-49`, `50-59`, `60-69`, `70-79`, `80-89`, and `90-100`. Numeric sliders MUST map directly to bucket starts `0`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, and `90`; setting the slider to `50` means a minimum score of `50`. Histogram counts MAY update against the current filter combination while excluding the facet currently being counted, but histogram bar height MUST use a stable scale from the unfiltered data so filtering companies out never makes another bucket visually grow. Work-field chips SHALL show a count and MUST update against the current filter combination while excluding the work field currently being counted.
 
 #### Scenario: Histogram includes unknown bucket
 
@@ -179,8 +179,8 @@ Each score filter SHALL show a leftmost unknown bucket for `null` scores and ten
 
 #### Scenario: Counts update with other active filters
 
-- **WHEN** a user selects `commercial`
-- **THEN** score histograms and other tag counts update to show counts for companies matching `commercial`
+- **WHEN** a user selects `sales-commercial`
+- **THEN** score histograms and other work-field counts update to show counts for companies matching `sales-commercial`
 
 #### Scenario: Histogram bars do not grow while filtering
 
@@ -387,4 +387,27 @@ The map overview MUST render app-owned map chrome, score badges, clusters, filte
 
 - **WHEN** the basemap renders
 - **THEN** the app does not recolour the Mapbox layers; the map shows the stock Mapbox "light" style and only the ambient `.map-atmosphere` bloom carries the active skin over it
+
+### Requirement: Overlay surface alignment
+
+The peek card surface SHALL use the same background colour token as the filter panel header while preserving the paper-grain texture, border, radius, and shadow treatment that distinguish it from the map canvas.
+
+#### Scenario: Peek card matches filter header surface
+
+- **WHEN** a company is selected and the filter panel header is available in the same theme
+- **THEN** the peek card background colour matches the filter panel header background colour
+
+### Requirement: Work-field chip icons
+
+Each rendered work-field filter chip SHALL include a compact icon that is stable for that work-field identifier and visually distinct from the icons assigned to the other work-field identifiers. Icons SHALL inherit the chip text colour so active and inactive chip states remain legible.
+
+#### Scenario: Work-field icons are unique
+
+- **WHEN** the work-field icon mapping is loaded
+- **THEN** every supported work-field identifier has exactly one icon path and no two work-field identifiers share the same icon path
+
+#### Scenario: Work-field chip renders its assigned icon
+
+- **WHEN** a work-field chip is visible in the filter panel
+- **THEN** the chip renders the icon assigned to that work-field identifier
 

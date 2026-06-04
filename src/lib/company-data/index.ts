@@ -1,8 +1,7 @@
 import type { Company } from "./types";
-import { AXIS_IDS, TAG_IDS } from "./types";
+import { AXIS_IDS } from "./types";
+import { getIscoSubMajorCode } from "./isco";
 import rawCompanies from "../../data/companies.json";
-
-const TAG_ID_SET = new Set<string>(TAG_IDS);
 
 export function loadRaw(): Record<string, any>[] {
   return rawCompanies;
@@ -81,11 +80,14 @@ export function validate(record: any): { ok: boolean; errors: string[] } {
           errors.push("invalid capability tag: expected object");
           continue;
         }
-        if (typeof tag.family !== "string" || !TAG_ID_SET.has(tag.family)) {
-          errors.push(`invalid capability tag family: ${String(tag.family)}`);
+        if (typeof tag.isco_code !== "string" || !getIscoSubMajorCode(tag.isco_code)) {
+          errors.push(`invalid capability tag isco_code: ${String(tag.isco_code)}`);
         }
         if (!["core", "supporting", "incidental"].includes(tag.prominence)) {
           errors.push(`invalid capability tag prominence: ${String(tag.prominence)}`);
+        }
+        if ("confidence" in tag && !["high", "low"].includes(tag.confidence)) {
+          errors.push(`invalid capability tag confidence: ${String(tag.confidence)}`);
         }
       }
     }

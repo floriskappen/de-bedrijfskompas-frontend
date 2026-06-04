@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validate, getAllCompanies, getCompanyById, getLocalizedField } from "./index";
-import { getCompanyTags } from "./filters";
+import { getCompanyDomainGroups } from "./filters";
 import type { Company } from "./types";
 
 describe("company-data capability", () => {
@@ -64,47 +64,59 @@ describe("company-data capability", () => {
     const result = validate(record);
 
     expect(result.ok).toBe(true);
-    expect(getCompanyTags(record)).toEqual([]);
+    expect(getCompanyDomainGroups(record)).toEqual([]);
   });
 
-  it("known tags are preserved", () => {
+  it("known ISCO tags are projected to work fields", () => {
     const record = createValidTemplate();
     record.capability_tags = [
-      { family: "software-engineering", prominence: "core" },
-      { family: "commercial", prominence: "supporting" },
+      { isco_code: "251", prominence: "core", confidence: "high" },
+      { isco_code: "243", prominence: "supporting", confidence: "low" },
     ];
 
     const result = validate(record);
 
     expect(result.ok).toBe(true);
-    expect(getCompanyTags(record)).toEqual(["software-engineering", "commercial"]);
+    expect(getCompanyDomainGroups(record)).toEqual(["software-it", "sales-commercial"]);
   });
 
-  it("unknown tags are rejected", () => {
+  it("unknown ISCO tags are rejected", () => {
     const record = createValidTemplate();
     record.capability_tags = [
-      { family: "software-engineering", prominence: "core" },
-      { family: "unknown-tag", prominence: "supporting" },
+      { isco_code: "251", prominence: "core" },
+      { isco_code: "999", prominence: "supporting" },
     ];
 
     const result = validate(record);
 
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain("invalid capability tag family: unknown-tag");
+    expect(result.errors).toContain("invalid capability tag isco_code: 999");
+  });
+
+  it("unknown confidence is rejected", () => {
+    const record = createValidTemplate();
+    record.capability_tags = [
+      { isco_code: "251", prominence: "core", confidence: "medium" },
+    ];
+
+    const result = validate(record);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("invalid capability tag confidence: medium");
   });
 
   it("tags are locale-neutral", () => {
     const record = createValidTemplate();
     record.capability_tags = [
-      { family: "commercial", prominence: "core" },
-      { family: "education-training", prominence: "supporting" },
+      { isco_code: "243", prominence: "core" },
+      { isco_code: "235", prominence: "supporting" },
     ];
 
     expect(validate(record).ok).toBe(true);
-    expect(getCompanyTags(record)).toEqual(["commercial", "education-training"]);
+    expect(getCompanyDomainGroups(record)).toEqual(["sales-commercial", "education-training"]);
     expect(getLocalizedField(record as Company, "nl", "tagline")).toBe("een test tagline.");
     expect(getLocalizedField(record as Company, "en", "tagline")).toBe("a test tagline.");
-    expect(getCompanyTags(record)).toEqual(["commercial", "education-training"]);
+    expect(getCompanyDomainGroups(record)).toEqual(["sales-commercial", "education-training"]);
   });
 
   // 12.3 null score is preserved, not coerced

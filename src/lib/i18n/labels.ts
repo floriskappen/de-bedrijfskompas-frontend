@@ -1,4 +1,4 @@
-import type { AxisId, TagId } from "../company-data/types";
+import type { AxisId, DomainGroupId } from "../company-data/types";
 
 type Locale = "nl" | "en";
 
@@ -23,49 +23,41 @@ const AXIS_LABELS: Record<Locale, Record<AxisId, string>> = {
   },
 };
 
-// Capability tag families, kept short enough to read as filter chips.
-const TAG_LABELS: Record<Locale, Record<TagId, string>> = {
+// Projected work fields, kept short enough to read as filter chips.
+const DOMAIN_GROUP_LABELS: Record<Locale, Record<DomainGroupId, string>> = {
   nl: {
-    "software-engineering": "software",
-    "data-ai": "data/ai",
-    "hardware-electronics": "hardware",
-    "mechanical-civil-engineering": "techniek",
-    "life-sciences": "biowetenschappen",
-    "earth-environmental-sciences": "milieu",
-    "clinical-care": "zorg",
-    "design-creative": "ontwerp",
-    "content-media": "media",
-    commercial: "commercieel",
-    "finance-accounting": "financiën",
-    "legal-compliance": "juridisch",
-    "policy-public-administration": "beleid",
-    "operations-supply-chain": "logistiek",
-    "people-org": "mensen",
-    "field-trades-operators": "vakwerk",
     "education-training": "onderwijs",
-    "service-hospitality": "service",
-    "community-social": "gemeenschap",
+    "health-care": "zorg",
+    "engineering-technical": "techniek",
+    "software-it": "software/ict",
+    "science-research": "onderzoek",
+    "business-finance-admin": "business/admin",
+    "sales-commercial": "sales",
+    "creative-media-culture": "creatief/media",
+    "legal-policy": "recht/beleid",
+    "trades-construction": "vakwerk/bouw",
+    "production-logistics": "productie/logistiek",
+    "agriculture-environment": "landbouw/milieu",
+    "hospitality-personal-service": "horeca/service",
+    "management-leadership": "leiding",
+    "public-safety-defense": "veiligheid/defensie",
   },
   en: {
-    "software-engineering": "software",
-    "data-ai": "data/ai",
-    "hardware-electronics": "hardware",
-    "mechanical-civil-engineering": "engineering",
-    "life-sciences": "life sciences",
-    "earth-environmental-sciences": "earth",
-    "clinical-care": "care",
-    "design-creative": "design",
-    "content-media": "media",
-    commercial: "commercial",
-    "finance-accounting": "finance",
-    "legal-compliance": "legal",
-    "policy-public-administration": "policy",
-    "operations-supply-chain": "operations",
-    "people-org": "people",
-    "field-trades-operators": "field trades",
     "education-training": "education",
-    "service-hospitality": "service",
-    "community-social": "community",
+    "health-care": "health/care",
+    "engineering-technical": "engineering",
+    "software-it": "software/it",
+    "science-research": "science",
+    "business-finance-admin": "business/admin",
+    "sales-commercial": "sales",
+    "creative-media-culture": "creative/media",
+    "legal-policy": "legal/policy",
+    "trades-construction": "trades/building",
+    "production-logistics": "production/logistics",
+    "agriculture-environment": "agriculture/environment",
+    "hospitality-personal-service": "hospitality/service",
+    "management-leadership": "management",
+    "public-safety-defense": "safety/defense",
   },
 };
 
@@ -73,6 +65,6 @@ export function getAxisLabel(axis: AxisId, locale: string): string {
   return AXIS_LABELS[normalizeLocale(locale)][axis];
 }
 
-export function getTagLabel(tag: TagId, locale: string): string {
-  return TAG_LABELS[normalizeLocale(locale)][tag];
+export function getDomainGroupLabel(domain: DomainGroupId, locale: string): string {
+  return DOMAIN_GROUP_LABELS[normalizeLocale(locale)][domain];
 }
