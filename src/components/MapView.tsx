@@ -89,65 +89,6 @@ function computePinOffsets(
   return offsets;
 }
 
-// Repaint the stock Mapbox "light" style into the ontwerp paper world: paper
-// land, a deeper-paper "sea", faint ink roads, ink-soft labels on paper halos.
-// Tones are read from the active theme's CSS variables, so the basemap follows
-// whatever skin the app is pinned to (currently wine). Iterates the live style
-// by layer type so it survives minor style changes — any layer that rejects a
-// given paint property is skipped.
-function applyPaperMapStyle(map: mapboxgl.Map) {
-  const style = map.getStyle();
-  if (!style?.layers) return;
-
-  const css = getComputedStyle(document.documentElement);
-  const tone = (name: string, fallback: string) =>
-    css.getPropertyValue(name).trim() || fallback;
-  // dedicated muted map tones — the wine tint held to a faint wash so the
-  // basemap reads as calm paper rather than glowing red (the full-strength
-  // surface/text tokens were too intense here)
-  const PAPER = tone("--map-land", "#efebeb");
-  const PAPER_WARM = tone("--map-warm", "#eae4e4");
-  const WATER = tone("--map-water", "#e6dede");
-  const ROAD = tone("--map-road", "#cdbcbc");
-  const LABEL = tone("--map-label", "#5c4647");
-
-  for (const layer of style.layers) {
-    const id = layer.id;
-    try {
-      switch (layer.type) {
-        case "background":
-          map.setPaintProperty(id, "background-color", PAPER);
-          break;
-        case "fill":
-          if (/water|ocean|sea|bathymetry/.test(id)) {
-            map.setPaintProperty(id, "fill-color", WATER);
-          } else if (/building/.test(id)) {
-            map.setPaintProperty(id, "fill-color", PAPER_WARM);
-          } else {
-            map.setPaintProperty(id, "fill-color", PAPER);
-          }
-          break;
-        case "fill-extrusion":
-          map.setPaintProperty(id, "fill-extrusion-color", PAPER_WARM);
-          break;
-        case "line":
-          map.setPaintProperty(
-            id,
-            "line-color",
-            /water|river|stream|canal/.test(id) ? WATER : ROAD
-          );
-          break;
-        case "symbol":
-          map.setPaintProperty(id, "text-color", LABEL);
-          map.setPaintProperty(id, "text-halo-color", PAPER);
-          break;
-      }
-    } catch {
-      // layer doesn't accept this paint property — leave it as shipped
-    }
-  }
-}
-
 export default function MapView({ companies, mapboxToken, locale }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -362,9 +303,6 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     });
 
     mapRef.current = map;
-
-    // recolor the basemap into the paper world once the style is ready
-    map.on("load", () => applyPaperMapStyle(map));
 
     // Auto-fit bounds on cold load if no selection
     if (!selectedCompany && companies.length > 0) {

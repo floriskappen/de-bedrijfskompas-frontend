@@ -260,12 +260,13 @@ test.describe("map-overview E2E tests", () => {
     await expect(page.locator('svg text:text-is("?")')).toBeVisible();
   });
 
-  // 13.14 CTA preserves locale and uses the company slug
-  test("CTA preserves locale and uses the company slug", async ({ page }) => {
+  // 13.14 activating the card preserves locale and uses the company slug
+  test("activating the card preserves locale and uses the company slug", async ({ page }) => {
     await page.goto("/en/?selected=land-life-company");
-    const cta = page.locator("text=open full profile");
-    await expect(cta).toBeVisible();
-    await cta.click();
+    const card = page.locator("#peek-card");
+    await expect(card).toHaveAttribute("role", "button");
+    // the whole card is the affordance — tap the body (away from the action buttons) to open
+    await page.locator("#peek-card-title").click();
     await expect(page).toHaveURL(/.*\/en\/land-life-company\//);
     await expect(page.locator("h1")).toHaveText("land life company b.v.");
   });
@@ -274,18 +275,26 @@ test.describe("map-overview E2E tests", () => {
     await page.goto("/?selected=land-life-company");
 
     const peekCardBackground = await page.locator("#peek-card").evaluate((el) => getComputedStyle(el).backgroundColor);
-    // wine theme warm surface
-    expect(peekCardBackground).toBe("rgb(236, 220, 220)");
+    // wine theme page surface
+    expect(peekCardBackground).toBe("rgb(242, 231, 231)");
 
-    const cta = page.locator('#peek-card a[href="/land-life-company/"]');
-    const favorite = page.locator('#peek-card button[aria-label="voeg bladwijzer toe"]');
-    await expect(cta).toBeVisible();
-    await expect(favorite).toBeVisible();
+    const bookmark = page.locator('#peek-card button[aria-label="voeg bladwijzer toe"]');
+    const close = page.locator('#peek-card button[aria-label="sluiten"]');
+    await expect(bookmark).toBeVisible();
+    await expect(close).toBeVisible();
 
-    const [ctaBox, favoriteBox] = await Promise.all([cta.boundingBox(), favorite.boundingBox()]);
-    expect(ctaBox).not.toBeNull();
-    expect(favoriteBox).not.toBeNull();
-    expect(Math.round(ctaBox!.height)).toBe(Math.round(favoriteBox!.height));
+    const [bookmarkBox, closeBox] = await Promise.all([bookmark.boundingBox(), close.boundingBox()]);
+    expect(bookmarkBox).not.toBeNull();
+    expect(closeBox).not.toBeNull();
+    expect(Math.round(bookmarkBox!.height)).toBe(Math.round(closeBox!.height));
+  });
+
+  test("close button clears the selection without navigating", async ({ page }) => {
+    await page.goto("/?selected=land-life-company");
+    await expect(page.locator("#peek-card-title")).toBeVisible();
+    await page.locator('#peek-card button[aria-label="sluiten"]').click();
+    await expect(page.locator("#peek-card-title")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test("map chrome omits language switcher while routes stay localized", async ({ page }) => {

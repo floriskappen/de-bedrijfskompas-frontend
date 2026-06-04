@@ -36,7 +36,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [faviconFailed, setFaviconFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef<{ startY: number; cardH: number } | null>(null);
+  const dragStartRef = useRef<{ startY: number; cardH: number; moved: boolean } | null>(null);
   const skipExitAnimRef = useRef(false);
 
   // Sync intent (selectedId) into the rendered card (displayedId). When the
@@ -86,48 +86,66 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
     );
   };
 
-  const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const navigate = () => {
+    window.location.href = ctaUrl;
+  };
+
+  // The whole card is the drag surface: drag it down past a third of its height
+  // to dismiss, or release without really moving (a tap) to open the profile.
+  // The top-right action buttons stop propagation so they never start a drag.
+  const onCardPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
     const cardH = cardRef.current.getBoundingClientRect().height;
-    dragStartRef.current = { startY: e.clientY, cardH };
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    dragStartRef.current = { startY: e.clientY, cardH, moved: false };
+    cardRef.current.setPointerCapture(e.pointerId);
     // disable entrance animation / prior transitions so inline transform wins
     cardRef.current.style.animation = "none";
     cardRef.current.style.transition = "none";
     cardRef.current.style.transform = "translateY(0px)";
   };
 
-  const onHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onCardPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = dragStartRef.current;
     if (!s || !cardRef.current) return;
     const raw = e.clientY - s.startY;
+    if (Math.abs(raw) > 4) s.moved = true;
     // down: 1:1 finger tracking. up: very stiff rubber-band capped at -20px.
     const y = raw >= 0 ? raw : Math.max(-20, raw / 6);
     cardRef.current.style.transform = `translateY(${y}px)`;
   };
 
-  const onHandlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onCardPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = dragStartRef.current;
+    dragStartRef.current = null;
     if (!s || !cardRef.current) return;
     const card = cardRef.current;
     const raw = e.clientY - s.startY;
     const shouldClose = raw > s.cardH * 0.3;
-    card.style.transition = "transform 160ms steps(4, end)";
-    const cleanup = () => {
-      card.removeEventListener("transitionend", cleanup);
-      if (shouldClose) {
+    if (shouldClose) {
+      card.style.transition = "transform 160ms steps(4, end)";
+      const cleanup = () => {
+        card.removeEventListener("transitionend", cleanup);
         skipExitAnimRef.current = true;
         dispatchClose();
-      } else {
-        card.style.transition = "";
-        card.style.transform = "";
-      }
-    };
-    card.addEventListener("transitionend", cleanup);
-    card.style.transform = shouldClose
-      ? `translateY(${s.cardH}px)`
-      : "translateY(0px)";
-    dragStartRef.current = null;
+      };
+      card.addEventListener("transitionend", cleanup);
+      card.style.transform = `translateY(${s.cardH}px)`;
+      return;
+    }
+    // a tap (no real movement) opens the profile; a small drag snaps back
+    if (!s.moved) {
+      navigate();
+      return;
+    }
+    card.style.transition = "transform 160ms steps(4, end)";
+    card.style.transform = "translateY(0px)";
+  };
+
+  const onCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      navigate();
+    }
   };
 
   useEffect(() => {
@@ -184,27 +202,69 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   const ctaUrl = locale === "en" ? `/en/${company.company_id}/` : `/${company.company_id}/`;
   const monogram = (company.name || "?").trim().charAt(0).toUpperCase();
 
+  // keep action buttons from starting a card drag or triggering the tap-to-open
+  const stopDrag = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation();
+
   return (
     <div
       ref={cardRef}
       id="peek-card"
-      className="peek-card-enter ontwerp-card is-warm w-full max-w-lg mx-auto px-5 pt-2.5 pb-9 pointer-events-auto will-change-transform"
+      role="button"
+      tabIndex={0}
+      aria-label={`${t("cta", locale)} — ${company.name}`}
+      className="peek-card-enter peek-card-float ontwerp-card is-warm relative w-full max-w-md mx-auto px-5 pt-4 pb-5 pointer-events-auto will-change-transform cursor-pointer touch-none select-none"
+      onPointerDown={onCardPointerDown}
+      onPointerMove={onCardPointerMove}
+      onPointerUp={onCardPointerUp}
+      onPointerCancel={onCardPointerUp}
+      onKeyDown={onCardKeyDown}
     >
-      {/* drag handle (enlarged hit area; visible bar centred inside) */}
-      <div
-        className="mx-auto mb-2 flex h-7 w-20 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
-        onPointerDown={onHandlePointerDown}
-        onPointerMove={onHandlePointerMove}
-        onPointerUp={onHandlePointerUp}
-        onPointerCancel={onHandlePointerUp}
-        aria-label={t("drag_handle", locale)}
-        role="button"
-      >
-        <div className="drag-handle-bar" />
+      {/* top-right actions: favourite + close (drag-down and tap-out also close) */}
+      <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+        <button
+          className="ontwerp-icon-button is-compact"
+          aria-label={t("bookmark_label", locale)}
+          type="button"
+          onPointerDown={stopDrag}
+          onClick={stopDrag}
+        >
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M9 2l2.09 4.26L16 7l-3.5 3.4.83 4.6L9 13l-4.33 2L5.5 10.4 2 7l4.91-.74L9 2z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <button
+          className="ontwerp-icon-button is-compact"
+          aria-label={t("close_label", locale)}
+          type="button"
+          onPointerDown={stopDrag}
+          onClick={(e) => {
+            stopDrag(e);
+            dispatchClose();
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M4 4l10 10M14 4L4 14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
       </div>
 
-      {/* header row: monogram + name + locality/distance */}
-      <div className="mb-3.5 flex items-center gap-3">
+      {/* pentagon — the headline of the card, given the most room */}
+      <div className="flex justify-center pt-1">
+        <Pentagon scores={company.scores} locale={locale} />
+      </div>
+
+      {/* identity: favicon + name + locality/distance */}
+      <div className="flex items-center gap-3">
         {company.favicon_url && !faviconFailed ? (
           <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center border border-border-quiet bg-[var(--wash-wine)]">
             <img
@@ -237,51 +297,8 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
         </div>
       </div>
 
-      {/* "wat ze doen" callout */}
-      <div className="peek-callout mb-3.5 px-3.5 py-3">
-        <div className="mb-1 font-mono text-[9.5px] text-red-dark">
-          {t("in_het_echt", locale)}
-        </div>
-        <div className="font-sans text-[16px] leading-snug text-ink">{tagline}</div>
-      </div>
-
-      {/* pentagon */}
-      <div className="flex justify-center pt-0.5 pb-4">
-        <Pentagon scores={company.scores} locale={locale} />
-      </div>
-
-      {/* CTA + bookmark */}
-      <div className="flex gap-2">
-        <a
-          href={ctaUrl}
-          className="ontwerp-button is-accent h-12 flex-1"
-        >
-          {t("cta", locale)}
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path
-              d="M3 7h8m-3-3l3 3-3 3"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </a>
-        <button
-          className="ontwerp-icon-button is-large"
-          aria-label={t("bookmark_label", locale)}
-          type="button"
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path
-              d="M9 2l2.09 4.26L16 7l-3.5 3.4.83 4.6L9 13l-4.33 2L5.5 10.4 2 7l4.91-.74L9 2z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
+      {/* description — plain inline text, no card chrome or header */}
+      <p className="mt-3.5 font-sans text-[15px] leading-snug text-ink-soft">{tagline}</p>
     </div>
   );
 }

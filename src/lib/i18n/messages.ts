@@ -11,6 +11,7 @@ export const messages = {
     filters: "filters",
     in_het_echt: "wat ze doen",
     drag_handle: "sleep om te sluiten",
+    close_label: "sluiten",
   },
   en: {
     title: "de bedrijfskompas",
@@ -24,5 +25,6 @@ export const messages = {
     filters: "filters",
     in_het_echt: "what they do",
     drag_handle: "drag to close",
+    close_label: "close",
   },
 } as const;

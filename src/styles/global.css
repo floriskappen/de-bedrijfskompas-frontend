@@ -73,17 +73,12 @@
 
   --selection-accent: #8e3a3f;
 
-  /* basemap tones — the wine tint held down to a faint wash (~a fifth of the
-     surface saturation) so the recoloured map reads as calm paper, not red.
-     These feed applyPaperMapStyle; the page surfaces stay fully wine. */
-  --map-land: #efebeb;
-  --map-warm: #eae4e4;
-  --map-water: #e6dede;
-  --map-road: #cdbcbc;
-  --map-label: #5c4647;
+  /* the basemap is left as the stock Mapbox "light" style — no app recolouring.
+     Only the .map-atmosphere bloom carries the wine skin over it, mirroring the
+     ontwerp zoo's wine atmosphere (accent-soft + surface-claim under multiply). */
 
-  /* a soft wine wash for inset panels (peek callout, logo tile) — clearly
-     themed but light, so they never fall back to reading as cream */
+  /* a soft wine wash for inset panels (the favicon/logo tile) — clearly themed
+     but light, so they never fall back to reading as cream */
   --wash-wine: color-mix(in srgb, var(--color-accent-base) 8%, var(--color-surface-page));
 
   /* filter sheet + its inset cards held lighter and quieter than the page */
@@ -166,21 +161,21 @@ em {
   background-size: 600px 600px, auto;
 }
 
-/* warm opaque card — the peek card sits on the map as a tactile paper sheet.
-   Kept light and only faintly warm: the wine surface at full strength read too
-   dark/red here, so this is a softened tint that still lifts off the basemap. */
+/* the peek card sits on the map as a tactile paper sheet, on the very same wine
+   page surface as everything else; its drop shadow (.peek-card-float) does the
+   lifting, not a different background colour. */
 .ontwerp-card.is-warm {
   background:
     url("/paper-grain-soft.svg"),
-    #f4ecec;
+    var(--color-surface-page);
   background-size: 600px 600px, auto;
 }
 
-/* inset panel inside the peek card (the "wat ze doen" callout) — a soft wine
-   wash so it reads as part of the theme rather than the old cream baseline */
-.peek-callout {
-  background: var(--wash-wine);
-  border: 1px solid var(--color-border-accent);
+/* the floating peek card: lifted off the map with a soft drop shadow and the
+   full card radius so it reads as hovering with air on every side */
+.peek-card-float {
+  border-radius: var(--card-radius);
+  box-shadow: 0 14px 40px rgb(42 23 24 / 0.18);
 }
 
 .ontwerp-button,
@@ -525,18 +520,20 @@ em {
   accent-color: var(--color-accent-base);
 }
 
-/* corner-only warm bloom + grain over the recoloured basemap — transparent in
-   the centre so it never competes with marker legibility */
+/* corner-only warm bloom + grain over the wine basemap — mirrors the ontwerp
+   zoo's wine atmosphere (a soft accent-soft + surface glow under multiply, not
+   the dark accent-base that read as a red block). Transparent in the centre so
+   it never competes with marker legibility. */
 .map-atmosphere {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(58% 50% at 0% 0%, color-mix(in srgb, var(--color-accent-base) 14%, transparent), transparent 70%),
-    radial-gradient(60% 55% at 100% 0%, color-mix(in srgb, var(--color-surface-deep) 72%, transparent), transparent 70%),
-    radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, var(--color-accent-soft) 12%, transparent), transparent 72%),
-    radial-gradient(64% 56% at 0% 100%, color-mix(in srgb, var(--color-surface-deep) 64%, transparent), transparent 72%);
+    radial-gradient(58% 50% at 0% 0%, color-mix(in srgb, var(--color-accent-soft) 16%, transparent), transparent 70%),
+    radial-gradient(60% 55% at 100% 0%, color-mix(in srgb, var(--color-surface-deep) 70%, transparent), transparent 70%),
+    radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, var(--color-accent-soft) 13%, transparent), transparent 72%),
+    radial-gradient(64% 56% at 0% 100%, color-mix(in srgb, var(--color-surface-deep) 62%, transparent), transparent 72%);
   mix-blend-mode: multiply;
 }
 

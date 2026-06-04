@@ -43,8 +43,8 @@ if (!mapboxToken) {
     )
   }
 
-  <!-- peek card overlay -->
-  <div class="absolute bottom-0 inset-x-0 z-20 pointer-events-none">
+  <!-- peek card overlay — padded so the card floats with air on every side -->
+  <div class="absolute bottom-0 inset-x-0 z-20 p-3 sm:p-4 pointer-events-none">
     <PeekCard client:load companies={companies} locale={locale} />
   </div>
 </div>
