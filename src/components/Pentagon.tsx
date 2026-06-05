@@ -5,6 +5,7 @@ import { getAxisLabel } from "../lib/i18n/labels";
 interface PentagonProps {
   scores: Company["scores"];
   locale?: "nl" | "en";
+  size?: number;
 }
 
 const AXES = [
@@ -15,12 +16,14 @@ const AXES = [
   { id: "posture" },
 ] as const;
 
-export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
-  const size = 200;
+export default function Pentagon({ scores, locale = "nl", size = 200 }: PentagonProps) {
   const cx = size / 2;
   const cy = size / 2;
   const r = size / 2 - 36;
   const n = AXES.length;
+  // marker + label sizes scale with the pentagon so larger renders (detail
+  // page) read at the same proportions as the peek card baseline (size 200).
+  const scale = size / 200;
 
   const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
   const point = (i: number, v: number): [number, number] => [
@@ -88,8 +91,8 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
             <text
               key={a.id + "-q"}
               x={px}
-              y={py + 4}
-              fontSize={16}
+              y={py + 4 * scale}
+              fontSize={16 * scale}
               fill="var(--color-text-faint)"
               textAnchor="middle"
               fontFamily="Archivo, sans-serif"
@@ -104,7 +107,7 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
             key={a.id + "-dot"}
             cx={px}
             cy={py}
-            r={3.5}
+            r={3.5 * scale}
             fill="var(--color-accent-base)"
             stroke="var(--color-surface-warm)"
             strokeWidth={1.5}
@@ -121,7 +124,7 @@ export default function Pentagon({ scores, locale = "nl" }: PentagonProps) {
             key={a.id + "-lbl"}
             x={lx}
             y={ly}
-            fontSize={9.5}
+            fontSize={9.5 * scale}
             letterSpacing="0.08em"
             fill={isNull ? "var(--color-text-faint)" : "var(--color-text-soft)"}
             textAnchor="middle"

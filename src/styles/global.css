@@ -84,6 +84,25 @@
   /* filter sheet + its inset cards held lighter and quieter than the page */
   --filter-surface: #f6f0f0;
   --filter-card-surface: rgba(227, 197, 197, 0.26);
+
+  /* Re-point the tailwind compatibility aliases at the wine ramp. Tailwind v4
+     resolves the @theme `var()` chains against the ontwerp *baseline* (cream),
+     so the named utilities (bg-paper*, text-ink*, …) would otherwise ignore
+     this skin. These plain-:root overrides win the cascade and keep the
+     `bg-paper-warm` / `text-ink` utilities in sync with the ontwerp classes. */
+  --color-paper: var(--color-surface-page);
+  --color-paper-warm: var(--color-surface-warm);
+  --color-paper-deep: var(--color-surface-deep);
+  --color-paper-card: var(--color-surface-claim);
+  --color-ink: var(--color-text-default);
+  --color-ink-soft: var(--color-text-soft);
+  --color-ink-quiet: var(--color-text-quiet);
+  --color-ink-faint: var(--color-text-faint);
+  --color-red: var(--color-accent-base);
+  --color-red-soft: var(--color-surface-deep);
+  --color-red-dark: var(--color-accent-base);
+  --color-brand-red: var(--color-accent-base);
+  --color-faint: var(--color-text-faint);
 }
 
 html,
@@ -750,6 +769,135 @@ em {
   }
 }
 
+/* axis dropdown — a stepped accordion. The panel slides its height open/closed
+   (so the rows below slide down/up with it) using the same chunky stepped feel
+   as the bottom sheets. Always in the DOM so it animates in both directions. */
+.axis-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 190ms steps(3, end);
+}
+
+.axis-panel.is-open {
+  grid-template-rows: 1fr;
+}
+
+.axis-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 190ms steps(3, end);
+}
+
+.axis-panel.is-open .axis-panel-inner {
+  opacity: 1;
+}
+
+/* the row chevron rotates with the same chunky stepped feel as the panel */
+.axis-chevron {
+  transition: transform 190ms steps(3, end);
+}
+
+/* ---------------------------------------------------------------------------
+   bloom curtain — page transition between the map peek card and the detail
+   page. Same printed-paper + wine/amber bloom language as the map reveal, but
+   with a single configurable origin (--ox / --oy, in px). Two directions:
+   - is-concealing: paper blooms out from the origin to cover the screen
+     (played on the source page, just before navigating away).
+   - is-revealing: paper opens a hole from the origin to uncover the page
+     (auto-played on the detail page when it loads).
+   --------------------------------------------------------------------------- */
+.bloom-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  --ox: 50%;
+  --oy: 80%;
+}
+
+.bloom-curtain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 34%, color-mix(in srgb, #ffffff 55%, var(--color-surface-page)), transparent 24%),
+    radial-gradient(circle at 70% 62%, color-mix(in srgb, var(--color-accent-soft) 26%, transparent), transparent 30%),
+    radial-gradient(circle at 24% 76%, color-mix(in srgb, var(--color-amber) 20%, transparent), transparent 32%),
+    url("/paper-grain-soft.svg"),
+    var(--color-paper);
+  background-size: auto, auto, auto, 600px 600px, auto;
+  will-change: mask-size, -webkit-mask-size, opacity;
+}
+
+.bloom-curtain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at var(--ox) var(--oy), color-mix(in srgb, var(--color-amber) 70%, transparent) 0 2%, transparent 17%),
+    radial-gradient(circle at var(--ox) var(--oy), color-mix(in srgb, var(--color-accent-base) 60%, transparent) 0 1%, transparent 24%);
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+.bloom-curtain.is-concealing::before {
+  animation: bloom-conceal 440ms steps(5, end) both;
+}
+.bloom-curtain.is-concealing::after {
+  animation: bloom-flash 440ms steps(5, end) both;
+}
+
+.bloom-curtain.is-revealing::before {
+  animation: bloom-reveal 760ms steps(8, end) both;
+}
+.bloom-curtain.is-revealing::after {
+  animation: bloom-flash 760ms steps(8, end) both;
+}
+
+@keyframes bloom-conceal {
+  0% {
+    opacity: 1;
+    -webkit-mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 0%, transparent 3%);
+    mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 0%, transparent 3%);
+  }
+  100% {
+    opacity: 1;
+    -webkit-mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 145%, transparent 152%);
+    mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 145%, transparent 152%);
+  }
+}
+
+@keyframes bloom-reveal {
+  0% {
+    opacity: 1;
+    visibility: visible;
+    -webkit-mask-image: radial-gradient(circle at var(--ox) var(--oy), transparent 0%, #000 3%);
+    mask-image: radial-gradient(circle at var(--ox) var(--oy), transparent 0%, #000 3%);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    -webkit-mask-image: radial-gradient(circle at var(--ox) var(--oy), transparent 145%, #000 152%);
+    mask-image: radial-gradient(circle at var(--ox) var(--oy), transparent 145%, #000 152%);
+  }
+}
+
+@keyframes bloom-flash {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .map-reveal-surface {
     isolation: auto;
@@ -768,5 +916,16 @@ em {
   .filter-backdrop,
   .filter-backdrop.is-exiting {
     animation: none;
+  }
+
+  .axis-panel,
+  .axis-panel-inner,
+  .axis-chevron {
+    transition: none;
+  }
+
+  /* no paper-bloom page transition under reduced motion — pages just swap */
+  .bloom-curtain {
+    display: none;
   }
 }

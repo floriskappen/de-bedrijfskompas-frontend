@@ -269,7 +269,9 @@ test.describe("map-overview E2E tests", () => {
     // the whole card is the affordance — tap the body (away from the action buttons) to open
     await page.locator("#peek-card-title").click();
     await expect(page).toHaveURL(/.*\/en\/land-life-company\//);
-    await expect(page.locator("h1")).toHaveText("land life company b.v.");
+    // the detail page mirrors the peek card: the company name keeps its real
+    // brand casing (a proper-noun exception to the lowercase house style)
+    await expect(page.locator("h1")).toHaveText("Land Life Company B.V.");
   });
 
   test("peek card action buttons share the same height", async ({ page }) => {

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { Company } from "../lib/company-data/types";
 import { getLocalizedField } from "../lib/company-data";
 import { t } from "../lib/i18n";
+import { concealThenNavigate } from "../lib/transitions/bloom-curtain";
 import Pentagon from "./Pentagon";
 
 interface PeekCardProps {
@@ -87,7 +88,11 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   };
 
   const navigate = () => {
-    window.location.href = ctaUrl;
+    // bloom out from the centre of the card, then load the detail page
+    const rect = cardRef.current?.getBoundingClientRect();
+    const ox = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const oy = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.8;
+    concealThenNavigate(ctaUrl, ox, oy);
   };
 
   // The whole card is the drag surface: drag it down past a third of its height
