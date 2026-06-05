@@ -16,6 +16,20 @@ export function concealThenNavigate(href: string, originX: number, originY: numb
     return;
   }
 
+  // When we're blooming back to the map, flag it so the map page skips its own
+  // first-load paper reveal — the conceal curtain already bridges the cut, and a
+  // second full reveal on the other side reads as slow. The map page reads and
+  // clears this on load. Direct visits / reloads carry no flag, so they still
+  // play the reveal.
+  try {
+    const dest = new URL(href, window.location.origin);
+    if (dest.pathname === "/" || dest.pathname === "/en/") {
+      sessionStorage.setItem("bloom-nav", "1");
+    }
+  } catch {
+    /* malformed href — fall through and just navigate */
+  }
+
   // guard against double-firing (animationend + fallback timeout)
   let navigated = false;
   const go = () => {
@@ -32,5 +46,5 @@ export function concealThenNavigate(href: string, originX: number, originY: numb
   document.body.appendChild(curtain);
 
   // fallback in case animationend never fires (pseudo-element quirks)
-  window.setTimeout(go, 560);
+  window.setTimeout(go, 380);
 }

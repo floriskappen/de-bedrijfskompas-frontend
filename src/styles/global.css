@@ -189,6 +189,15 @@ em {
   background-size: 600px 600px, auto;
 }
 
+/* the detail page wears the same warm grained surface as the peek card it
+   blooms out of, so the two read as one continuous sheet */
+.surface-warm-grain {
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-surface);
+  background-size: 600px 600px, auto;
+}
+
 /* the floating peek card: lifted off the map with a soft drop shadow and the
    full card radius so it reads as hovering with air on every side */
 .peek-card-float {
@@ -570,6 +579,15 @@ em {
   isolation: isolate;
 }
 
+/* arrived here from an in-app bloom transition (e.g. detail → map): the conceal
+   curtain already bridged the cut, so skip the paper reveal and show the map at
+   once rather than fading it in a second time. */
+.skip-map-reveal .map-reveal-surface::before,
+.skip-map-reveal .map-reveal-surface::after {
+  content: none;
+  animation: none;
+}
+
 .map-reveal-surface::before,
 .map-reveal-surface::after {
   content: "";
@@ -842,17 +860,17 @@ em {
 }
 
 .bloom-curtain.is-concealing::before {
-  animation: bloom-conceal 440ms steps(5, end) both;
+  animation: bloom-conceal 300ms steps(5, end) both;
 }
 .bloom-curtain.is-concealing::after {
-  animation: bloom-flash 440ms steps(5, end) both;
+  animation: bloom-flash 300ms steps(5, end) both;
 }
 
 .bloom-curtain.is-revealing::before {
-  animation: bloom-reveal 760ms steps(8, end) both;
+  animation: bloom-reveal 480ms steps(8, end) both;
 }
 .bloom-curtain.is-revealing::after {
-  animation: bloom-flash 760ms steps(8, end) both;
+  animation: bloom-flash 480ms steps(8, end) both;
 }
 
 @keyframes bloom-conceal {

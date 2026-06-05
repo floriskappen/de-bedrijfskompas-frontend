@@ -18,6 +18,17 @@ if (!mapboxToken) {
 }
 ---
 
+<!-- Decide before the surface paints whether to skip the first-load reveal.
+     Set by the bloom curtain when arriving back here from the detail page. -->
+<script is:inline>
+  try {
+    if (sessionStorage.getItem("bloom-nav")) {
+      document.documentElement.classList.add("skip-map-reveal");
+      sessionStorage.removeItem("bloom-nav");
+    }
+  } catch (e) {}
+</script>
+
 <div
   id="map-reveal-surface"
   class="map-reveal-surface relative w-screen h-screen overflow-hidden bg-paper flex flex-col"
