@@ -73,4 +73,7 @@ export interface Company {
   scores: Scores;
   nl: LocaleBlock;
   en: LocaleBlock;
+  // ISO 8601 (UTC) timestamps emitted by the pipeline; optional pass-through.
+  created_at?: string;
+  updated_at?: string;
 }

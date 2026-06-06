@@ -22,7 +22,7 @@ export const messages = {
     evidence_none: "geen signaal",
     website_label: "open website",
     back_to_map: "terug naar de kaart",
-    last_checked: "gecheckt 12 dagen geleden",
+    last_checked: "gecheckt",
     about: "waarom deze site",
   },
   en: {
@@ -48,7 +48,7 @@ export const messages = {
     evidence_none: "no signal",
     website_label: "open website",
     back_to_map: "back to the map",
-    last_checked: "checked 12 days ago",
+    last_checked: "checked",
     about: "why this site",
   },
 } as const;

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { AxisId, Company, EvidenceLevel } from "../lib/company-data/types";
 import { AXIS_IDS } from "../lib/company-data/types";
 import { getLocalizedField } from "../lib/company-data";
+import { formatLastChecked } from "../lib/company-data/last-checked";
 import { getAxisLabel } from "../lib/i18n/labels";
 import { t } from "../lib/i18n";
 import {
@@ -217,6 +218,7 @@ export default function CompanyDetail({ company, locale }: CompanyDetailProps) {
   // it was opened from re-opens.
   const base = locale === "en" ? "/en/" : "/";
   const mapHref = `${base}?selected=${encodeURIComponent(company.company_id)}`;
+  const lastChecked = formatLastChecked(company.updated_at, locale);
 
   return (
     <div className="mx-auto w-full max-w-md px-5 pb-16 pt-4">
@@ -335,10 +337,12 @@ export default function CompanyDetail({ company, locale }: CompanyDetailProps) {
         <div className="border-t border-ink/10" />
       </div>
 
-      {/* footer meta */}
-      <p className="mt-6 text-center font-mono text-[10px] tracking-[0.08em] text-ink-quiet">
-        {t("last_checked", locale)}
-      </p>
+      {/* footer meta — real last-refreshed time, omitted when unknown */}
+      {lastChecked && (
+        <p className="mt-6 text-center font-mono text-[10px] tracking-[0.08em] text-ink-quiet">
+          {t("last_checked", locale)} {lastChecked}
+        </p>
+      )}
     </div>
   );
 }

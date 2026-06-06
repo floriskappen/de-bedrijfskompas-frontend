@@ -6,7 +6,7 @@ Capability to load, validate, and access company records.
 ## Requirements
 ### Requirement: Company record shape
 
-A company record represents one organization being evaluated by the project. Every record MUST contain the top-level fields `company_id` (stable kebab/snake slug used in URLs), `name`, `status`, `latlng`, and `scores`. `website`, `address`, and `capability_tags` are optional. When present, `capability_tags` MUST be an array of zero or more objects with `isco_code` set to a supported three-digit ISCO-08 minor group code, `prominence` set to `core`, `supporting`, or `incidental`, and optional `confidence` set to `high` or `low`; when absent, consumers MUST treat it as an empty array. Each supported locale (`nl`, `en`) appears as a top-level key containing locale-specific prose. The set of axis identifiers in `scores` is fixed and exhaustive: `substance`, `ecology`, `power`, `embeddedness`, `posture`.
+A company record represents one organization being evaluated by the project. Every record MUST contain the top-level fields `company_id` (stable kebab/snake slug used in URLs), `name`, `status`, `latlng`, and `scores`. `website`, `address`, `capability_tags`, `created_at`, and `updated_at` are optional. When present, `created_at` and `updated_at` MUST be ISO 8601 timestamp strings (UTC) marking when the record was first produced and last refreshed by the pipeline; consumers MUST treat them as opaque pass-through values and tolerate their absence. When present, `capability_tags` MUST be an array of zero or more objects with `isco_code` set to a supported three-digit ISCO-08 minor group code, `prominence` set to `core`, `supporting`, or `incidental`, and optional `confidence` set to `high` or `low`; when absent, consumers MUST treat it as an empty array. Each supported locale (`nl`, `en`) appears as a top-level key containing locale-specific prose. The set of axis identifiers in `scores` is fixed and exhaustive: `substance`, `ecology`, `power`, `embeddedness`, `posture`.
 
 #### Scenario: Valid record is exposed to the app
 
@@ -22,6 +22,16 @@ A company record represents one organization being evaluated by the project. Eve
 
 - **WHEN** a JSON record omits `capability_tags`
 - **THEN** the typed record remains renderable and consumers expose its projected work fields as an empty array
+
+#### Scenario: Timestamps pass through when present
+
+- **WHEN** a JSON record carries `created_at` and/or `updated_at`
+- **THEN** the typed record exposes those ISO 8601 strings unchanged
+
+#### Scenario: Missing timestamps are tolerated
+
+- **WHEN** a JSON record omits `created_at` and `updated_at`
+- **THEN** the record remains renderable and consumers treat the timestamps as absent
 
 ### Requirement: Company tag taxonomy
 
@@ -115,3 +125,4 @@ The capability exposes two build-time accessors: one that returns the collection
 
 - **WHEN** the lookup accessor is called with `company_id`
 - **THEN** it returns the matching record if known and renderable, or `undefined` otherwise
+
