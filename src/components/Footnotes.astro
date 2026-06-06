@@ -1,0 +1,31 @@
+---
+// The footnote list at the bottom of a page. Each note carries an anchor the
+// inline marker jumps to, and a number that links back up to the marker.
+import { footnoteNumbers, type Footnote } from "../lib/i18n/info-content";
+
+interface Props {
+  footnotes: Footnote[];
+}
+
+const { footnotes } = Astro.props;
+const numbers = footnoteNumbers(footnotes);
+---
+
+{footnotes.length > 0 && (
+  <section class="mt-12 border-t border-ink/10 pt-5">
+    <div class="space-y-3">
+      {footnotes.map((f) => (
+        <p id={`fn-${f.id}`} class="flex gap-2.5 scroll-mt-6 font-sans text-[13px] leading-relaxed text-ink-quiet">
+          <a
+            href={`#fnref-${f.id}`}
+            class="mt-px shrink-0 font-mono text-[11px] text-accent-base no-underline"
+            aria-label="terug naar de tekst"
+          >
+            {numbers[f.id]}
+          </a>
+          <span>{f.body}</span>
+        </p>
+      ))}
+    </div>
+  </section>
+)}

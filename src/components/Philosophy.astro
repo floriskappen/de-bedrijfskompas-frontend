@@ -1,0 +1,123 @@
+---
+import { AXIS_IDS } from "../lib/company-data/types";
+import { getAxisLabel } from "../lib/i18n/labels";
+import { getAxisInfoHref } from "../lib/company-data/axis-detail";
+import { getAxisContent, getPhilosophyContent } from "../lib/i18n/info-content";
+import { t } from "../lib/i18n";
+import AxisGlyph from "./AxisGlyph.astro";
+import Disclaimer from "./Disclaimer.astro";
+
+interface Props {
+  locale: "nl" | "en";
+}
+
+const { locale } = Astro.props;
+
+const content = getPhilosophyContent(locale);
+const base = locale === "en" ? "/en/" : "/";
+---
+
+<main class="surface-warm-grain min-h-screen text-ink">
+  <article class="mx-auto w-full max-w-xl px-6 pb-24 pt-5">
+    <!-- top bar: back to the map -->
+    <div class="mb-10 flex items-center justify-between">
+      <a href={base} class="ontwerp-button h-9">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path
+            d="M9 2 L 4 7 L 9 12"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+        </svg>
+        <span>{t("back_to_map", locale)}</span>
+      </a>
+      <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-quiet">
+        {content.eyebrow}
+      </span>
+    </div>
+
+    <!-- title + intro -->
+    <h1 class="font-sans text-[40px] leading-[1.05] text-ink normal-case">{content.heading}</h1>
+    <div class="mt-5 space-y-4">
+      {content.intro.map((p) => (
+        <p class="font-sans text-[18px] leading-relaxed text-ink-soft">{p}</p>
+      ))}
+    </div>
+
+    <!-- explanatory sections -->
+    {content.sections.map((section) => (
+      <section class="mt-9">
+        <h2 class="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-quiet">
+          {section.heading}
+        </h2>
+        <div class="mt-3 space-y-3.5">
+          {section.body.map((p) => (
+            <p class="font-sans text-[16px] leading-relaxed text-ink-soft">{p}</p>
+          ))}
+        </div>
+      </section>
+    ))}
+
+    <!-- the five axes — each links to its own info page (kept near the bottom) -->
+    <section class="mt-11">
+      <h2 class="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-quiet">
+        {content.axesLead}
+      </h2>
+      <p class="mt-2 font-sans text-[15px] leading-snug text-ink-quiet">{content.axesLeadBody}</p>
+      <div class="mt-3 divide-y divide-ink/10 border-y border-ink/10">
+        {AXIS_IDS.map((axis) => (
+          <a
+            href={getAxisInfoHref(axis, locale)}
+            class="flex items-start gap-3.5 py-3.5 no-underline"
+          >
+            <span class="mt-0.5"><AxisGlyph axis={axis} size={22} /></span>
+            <span class="min-w-0 flex-1">
+              <span class="block font-sans text-[19px] leading-none text-ink normal-case">
+                {getAxisLabel(axis, locale)}
+              </span>
+              <span class="mt-1.5 block font-sans text-[14px] leading-snug text-ink-quiet">
+                {getAxisContent(axis, locale).plain}
+              </span>
+            </span>
+            <svg width="11" height="11" viewBox="0 0 11 11" class="mt-1.5 shrink-0 text-ink-quiet" aria-hidden="true">
+              <path
+                d="M3 2 L 8 5.5 L 3 9"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                fill="none"></path>
+            </svg>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- tail sections (e.g. a plain note about the site itself) -->
+    {content.tailSections.map((section) => (
+      <section class="mt-9">
+        <h2 class="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-quiet">
+          {section.heading}
+        </h2>
+        <div class="mt-3 space-y-3.5">
+          {section.body.map((p) => (
+            <p class="font-sans text-[16px] leading-relaxed text-ink-soft">{p}</p>
+          ))}
+        </div>
+      </section>
+    ))}
+
+    <!-- closing: a plain note that this is an evolving experiment -->
+    <div class="mt-10 border-t border-ink/10 pt-5">
+      {content.closing.map((p) => (
+        <p class="font-sans text-[14px] leading-relaxed text-ink-quiet">{p}</p>
+      ))}
+    </div>
+
+    <Disclaimer locale={locale} withBorder={false} />
+  </article>
+</main>
+
+<!-- top-to-bottom paper-bloom sweep on every load -->
+<div class="bloom-curtain is-revealing-down" aria-hidden="true"></div>

@@ -12,13 +12,13 @@ High-level checklist of what's left before the app feels complete. Each point is
 - [x] Include a link to the company's website somewhere on the page.
 
 ## Axis info pages
-- [ ] One explanation page per axis, describing what it means.
-- [ ] Linked from detail page icons and from the filters.
+- [x] One explanation page per axis, describing what it means.
+- [x] Linked from detail page icons (carry `?from=` so back returns to the company). (filters link lands with the filters-page rework)
 
 ## Philosophy / about page
-- [ ] General page explaining the site's philosophy and what we're trying to achieve.
-- [ ] Link out to the per-axis info pages.
-- [ ] Surface it as a button on the map (core for new users) and in other sensible spots.
+- [x] General page explaining the site's philosophy and what we're trying to achieve.
+- [x] Link out to the per-axis info pages.
+- [x] Surface it as a button on the map (core for new users); also linked from each axis page.
 
 ## Filters page
 - [ ] Move away from each axis in a separate card.

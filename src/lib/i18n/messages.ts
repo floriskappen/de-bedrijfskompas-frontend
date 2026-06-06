@@ -23,6 +23,7 @@ export const messages = {
     website_label: "open website",
     back_to_map: "terug naar de kaart",
     last_checked: "gecheckt 12 dagen geleden",
+    about: "waarom deze site",
   },
   en: {
     title: "de bedrijfskompas",
@@ -48,5 +49,6 @@ export const messages = {
     website_label: "open website",
     back_to_map: "back to the map",
     last_checked: "checked 12 days ago",
+    about: "why this site",
   },
 } as const;

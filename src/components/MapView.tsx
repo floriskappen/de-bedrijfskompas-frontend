@@ -739,6 +739,24 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         </div>
       )}
 
+      <a
+        id="about-button"
+        href={locale === "en" ? "/en/about/" : "/over/"}
+        aria-label={t("about", locale)}
+        className="ontwerp-icon-button absolute top-4 left-4 z-20"
+      >
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <circle cx="9" cy="9" r="6.7" stroke="currentColor" strokeWidth="1.4" />
+          <path
+            d="M9 8.2v4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <circle cx="9" cy="5.7" r="0.5" fill="currentColor" stroke="currentColor" strokeWidth="0.7" />
+        </svg>
+      </a>
+
       <button
         id="filters-button"
         type="button"

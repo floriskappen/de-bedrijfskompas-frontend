@@ -186,7 +186,7 @@ function AxisRow({
               <p className="mb-3.5 font-sans text-[16px] leading-snug text-ink-soft">{reason}</p>
             )}
             <a
-              href={getAxisInfoHref(axis, locale)}
+              href={getAxisInfoHref(axis, locale, company.company_id)}
               data-axis-info={axis}
               tabIndex={expanded ? undefined : -1}
               className="flex items-center gap-2.5 bg-ink/[0.04] px-3 py-2 no-underline"

@@ -1,0 +1,22 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import AxisInfo from "../../components/AxisInfo.astro";
+import { AXIS_IDS, type AxisId } from "../../lib/company-data/types";
+import { getAxisLabel } from "../../lib/i18n/labels";
+
+export function getStaticPaths() {
+  return AXIS_IDS.map((axis) => ({ params: { axis } }));
+}
+
+const { axis } = Astro.params as { axis: AxisId };
+
+if (!AXIS_IDS.includes(axis)) {
+  return Astro.redirect("/404");
+}
+
+const locale = "nl";
+---
+
+<Layout title={`${getAxisLabel(axis, locale)} — de bedrijfskompas`}>
+  <AxisInfo axis={axis} locale={locale} />
+</Layout>

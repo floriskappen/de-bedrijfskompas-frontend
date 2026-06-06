@@ -26,8 +26,9 @@ export function getEvidenceLabel(evidence: EvidenceLevel, locale: string): strin
 }
 
 // Per-axis info page lives at a language-neutral axis id under a localized
-// prefix. These routes are a forward reference — they 404 until the
-// axis-info-pages change ships.
-export function getAxisInfoHref(axis: AxisId, locale: string): string {
-  return locale === "en" ? `/en/axis/${axis}/` : `/as/${axis}/`;
+// prefix. When opened from a company detail page, the company id is carried as
+// `?from=` so the info page's back button can return to that company.
+export function getAxisInfoHref(axis: AxisId, locale: string, fromCompanyId?: string): string {
+  const base = locale === "en" ? `/en/axis/${axis}/` : `/as/${axis}/`;
+  return fromCompanyId ? `${base}?from=${encodeURIComponent(fromCompanyId)}` : base;
 }

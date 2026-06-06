@@ -1,0 +1,23 @@
+---
+// The short standing disclaimer shown at the bottom of every info page: this is
+// one person's opinionated view, with a way to disagree.
+import { getInfoDisclaimer } from "../lib/i18n/info-content";
+
+interface Props {
+  locale: "nl" | "en";
+  withBorder?: boolean;
+}
+
+const { locale, withBorder = true } = Astro.props;
+const d = getInfoDisclaimer(locale);
+---
+
+<p
+  class:list={[
+    "mt-7 font-sans text-[13px] leading-relaxed text-ink-quiet",
+    withBorder && "border-t border-ink/10 pt-5",
+  ]}
+>
+  {d.text}{" "}
+  <a href={`mailto:${d.email}`} class="underline">{d.linkText}</a>.
+</p>

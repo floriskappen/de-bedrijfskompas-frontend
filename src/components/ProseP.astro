@@ -1,0 +1,34 @@
+---
+// A prose paragraph. Inline `[^id]` markers are pulled out of the sentence and
+// rendered as tiny numbered links ("1.") at the end of the paragraph, each
+// jumping to its footnote. A paragraph can reference several footnotes.
+import { parseInlineFootnotes } from "../lib/i18n/info-content";
+
+interface Props {
+  text: string;
+  numbers?: Record<string, number>;
+  class?: string;
+}
+
+const {
+  text,
+  numbers = {},
+  class: cls = "font-sans text-[16px] leading-relaxed text-ink-soft",
+} = Astro.props;
+
+const segments = parseInlineFootnotes(text);
+const cleanText = segments
+  .filter((s) => s.type === "text")
+  .map((s) => (s as { value: string }).value)
+  .join("");
+const refIds = segments
+  .filter((s) => s.type === "ref")
+  .map((s) => (s as { id: string }).id);
+---
+
+<p class={cls}>
+  {cleanText}
+  {refIds.map((id) => (
+    <a id={`fnref-${id}`} href={`#fn-${id}`} class="footnote-ref">{numbers[id] ?? "?"}.</a>
+  ))}
+</p>

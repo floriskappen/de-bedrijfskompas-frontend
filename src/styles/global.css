@@ -151,6 +151,20 @@ em {
   color: var(--color-text-default);
 }
 
+/* footnote marker — a tiny accent "1." link at the end of a prose paragraph */
+.footnote-ref {
+  color: var(--color-accent-base);
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  text-decoration: none;
+  margin-left: 0.3em;
+  vertical-align: baseline;
+}
+
+.footnote-ref:hover {
+  text-decoration: underline;
+}
+
 /* paper-grain texture utility for sheets/cards */
 .paper-grain {
   background-image: url("/paper-grain-soft.svg");
@@ -913,6 +927,69 @@ em {
   }
   100% {
     opacity: 0;
+  }
+}
+
+/* directional bloom sweeps for the reading pages. Same printed-paper + wine/amber
+   bloom language as the radial reveal, but the paper cover lifts along a line
+   instead of opening from a point. The amber/wine flash blooms near the middle.
+   - is-revealing-sweep: a diagonal lift from lower-left to upper-right (axis pages).
+   - is-revealing-down: a top-to-bottom lift (the "why this site exists" page). */
+.bloom-curtain.is-revealing-sweep {
+  --ox: 50%;
+  --oy: 54%;
+}
+.bloom-curtain.is-revealing-sweep::before {
+  animation: bloom-sweep-reveal 560ms steps(9, end) both;
+}
+.bloom-curtain.is-revealing-sweep::after {
+  animation: bloom-flash 560ms steps(9, end) both;
+}
+
+.bloom-curtain.is-revealing-down {
+  --ox: 50%;
+  --oy: 32%;
+}
+.bloom-curtain.is-revealing-down::before {
+  animation: bloom-down-reveal 560ms steps(9, end) both;
+}
+.bloom-curtain.is-revealing-down::after {
+  animation: bloom-flash 560ms steps(9, end) both;
+}
+
+@keyframes bloom-sweep-reveal {
+  0% {
+    opacity: 1;
+    visibility: visible;
+    -webkit-mask-image: linear-gradient(to top right, transparent -25%, #000 -8%);
+    mask-image: linear-gradient(to top right, transparent -25%, #000 -8%);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    -webkit-mask-image: linear-gradient(to top right, transparent 112%, #000 132%);
+    mask-image: linear-gradient(to top right, transparent 112%, #000 132%);
+  }
+}
+
+@keyframes bloom-down-reveal {
+  0% {
+    opacity: 1;
+    visibility: visible;
+    -webkit-mask-image: linear-gradient(to bottom, transparent -25%, #000 -8%);
+    mask-image: linear-gradient(to bottom, transparent -25%, #000 -8%);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 112%, #000 132%);
+    mask-image: linear-gradient(to bottom, transparent 112%, #000 132%);
   }
 }
 
