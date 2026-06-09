@@ -168,15 +168,21 @@ const readabilityLabel = sections.readabilityPhrase[content.readability];
 <div class="bloom-curtain is-revealing-sweep" aria-hidden="true"></div>
 
 <script>
-  // The back button returns to the company detail page you arrived from
-  // (passed as ?from=<company_id>), falling back to the map otherwise.
+  // The back button is origin-aware via ?from=. A company id returns to that
+  // company's detail page; the reserved value "filters" returns to the map with
+  // the filter sheet reopened (?filters=open); absent, it falls back to the map.
   const params = new URLSearchParams(window.location.search);
   const from = params.get("from");
   if (from) {
     const isEn = window.location.pathname.startsWith("/en/");
+    const mapBase = isEn ? "/en/" : "/";
     const back = document.getElementById("info-back");
     const label = document.getElementById("info-back-label");
-    if (back) back.setAttribute("href", `${isEn ? "/en/" : "/"}${encodeURIComponent(from)}/`);
-    if (label) label.textContent = isEn ? "back" : "terug";
+    if (from === "filters") {
+      if (back) back.setAttribute("href", `${mapBase}?filters=open`);
+    } else {
+      if (back) back.setAttribute("href", `${mapBase}${encodeURIComponent(from)}/`);
+      if (label) label.textContent = isEn ? "back" : "terug";
+    }
   }
 </script>

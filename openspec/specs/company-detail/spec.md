@@ -63,7 +63,17 @@ The page SHALL render the five-axis pentagon for the company, in the same visual
 
 ### Requirement: Axis reasoning list
 
-The page SHALL list the five axes — in the fixed order `substance`, `ecology`, `power`, `embeddedness`, `posture` — using the site's axis labels (`inhoud`, `ecologie`, `macht`, `verankering`, `houding` in Dutch). Each axis row SHALL be tappable to expand, revealing that axis's evidence level and the localized reasoning prose for why it scored as it did.
+The page SHALL list the five axes — in the fixed order `substance`, `ecology`, `power`, `embeddedness`, `posture` — using the site's axis labels (`inhoud`, `ecologie`, `macht`, `verankering`, `houding` in Dutch). Each collapsed axis row SHALL show the axis's focus level (`low`, `medium`, or `high`) as a compact three-bar focus meter — one filled bar for `low`, two for `medium`, three for `high` — carrying the localized level label as its accessible name. An axis with a `null` score or `no_signal` evidence SHALL instead show the no-signal meter (all three bars hollow) and read as "geen signaal". The same focus meter SHALL be the shared focus-level indicator used on the favorites cards and as the selected minimum in the filter sheet. Each axis row SHALL be tappable to expand, revealing the axis's evidence level and the localized reasoning prose for why it scored as it did.
+
+#### Scenario: Collapsed row shows the focus level
+
+- **WHEN** an axis has a numeric score
+- **THEN** its collapsed row shows that axis's focus level as a focus meter whose filled-bar count matches the band (`low`/`medium`/`high`) and whose accessible name is the localized level label
+
+#### Scenario: No-signal row shows the unknown state
+
+- **WHEN** an axis has a `null` score or `no_signal` evidence
+- **THEN** its collapsed row shows the hollow no-signal meter labelled "geen signaal" instead of a focus level, and the row is visibly de-emphasized
 
 #### Scenario: Expand an axis
 
@@ -71,20 +81,15 @@ The page SHALL list the five axes — in the fixed order `substance`, `ecology`,
 - **THEN** the row expands to show the axis's evidence level and its localized `reason` text
 - **AND** any previously expanded row's behaviour is consistent (at least the tapped row's content becomes visible)
 
-#### Scenario: Evidence level shown
+#### Scenario: Evidence level shown inside the expanded row
 
 - **WHEN** an expanded axis row renders its evidence
-- **THEN** it displays the axis's `evidence` value (`well_evidenced`, `partial`, or `no_signal`) as a localized, lowercase label with its glyph
-
-#### Scenario: No-signal axis row
-
-- **WHEN** an axis has `no_signal` evidence (and/or a `null` score)
-- **THEN** the row is visibly de-emphasized and still shows its `reason` text when one is present
+- **THEN** it displays the axis's `evidence` value (`well_evidenced`, `partial`, or `no_signal`) as a localized, lowercase label with its glyph, within the expanded panel rather than on the collapsed row
 
 #### Scenario: Missing reason text
 
 - **WHEN** an axis's `reason` is empty in both locales
-- **THEN** the expanded row shows the label and evidence only, without an empty prose block
+- **THEN** the expanded row shows the evidence only, without an empty prose block
 
 ### Requirement: Axis info-page links
 
@@ -98,12 +103,28 @@ Each expanded axis SHALL offer a link to that axis's info page, targeting `/as/{
 
 ### Requirement: Top bar
 
-The page SHALL carry a top bar with a back control that returns to the map, plus quiet icon affordances for saving the company and (when present) opening its website. The back control SHALL preserve the company selection so the map re-opens the peek card it was reached from.
+The page SHALL carry a top bar with an origin-aware back control, plus quiet icon affordances for toggling the current company as a favorite and, when present, opening its website. By default — and when reached from the map peek card — the back control SHALL return to the map for the current locale with this company selected, so the map re-opens the peek card it was reached from. When the detail page is reached from the favorites overview (signalled by a `from=favorites` origin marker on the URL), the back control SHALL instead return to the localized favorites overview page and carry the localized "back to favorites" label. The favorite control SHALL reflect whether the current company is saved in browser-local favorites and SHALL toggle that state without navigating.
 
 #### Scenario: Back to the map keeps the company selected
 
-- **WHEN** the visitor activates the back control
-- **THEN** they return to the map for the current locale with this company selected (its peek card re-opened)
+- **WHEN** the visitor reached the detail page from the map and activates the back control
+- **THEN** they return to the map for the current locale with this company selected and its peek card re-opened
+
+#### Scenario: Back to favorites when reached from the overview
+
+- **WHEN** the visitor opened the detail page from the favorites overview (a `from=favorites` origin)
+- **THEN** the back control returns to the localized favorites overview page rather than the map
+
+#### Scenario: Favorite control reflects saved state
+
+- **WHEN** the company is saved in browser-local favorites
+- **THEN** the detail-page favorite control shows selected state
+
+#### Scenario: Favorite control toggles without navigation
+
+- **WHEN** the visitor activates the detail-page favorite control
+- **THEN** the current company favorite state changes
+- **AND** the visitor remains on the detail page
 
 #### Scenario: Website affordance present
 

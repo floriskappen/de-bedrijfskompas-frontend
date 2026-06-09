@@ -6,7 +6,10 @@ import {
   getCompanyDomainGroups,
   getCompositeScore,
   getDomainGroupCounts,
+  getFavoriteCount,
   getHistogramBuckets,
+  hasActiveFilters,
+  matchesCompanyFilters,
   matchesAxisMinimum,
   matchesSelectedDomains,
 } from "./filters";
@@ -83,16 +86,35 @@ describe("company filter helpers", () => {
     expect(getCompositeScore(company)).toBeNull();
   });
 
-  it("axis minimum keeps unknowns at zero", () => {
+  it("none keeps null scores", () => {
     const company = makeCompany();
 
-    expect(matchesAxisMinimum(company, "power", 0)).toBe(true);
+    expect(matchesAxisMinimum(company, "power", "none")).toBe(true);
   });
 
-  it("axis minimum excludes unknowns above zero", () => {
-    const company = makeCompany();
+  it("low excludes only nulls", () => {
+    const company = makeCompany(); // power is null, others score 50 (medium)
 
-    expect(matchesAxisMinimum(company, "power", 5)).toBe(false);
+    expect(matchesAxisMinimum(company, "power", "low")).toBe(false);
+    expect(matchesAxisMinimum(company, "substance", "low")).toBe(true);
+  });
+
+  it("high excludes lower bands", () => {
+    const company = makeCompany({
+      scores: {
+        substance: { score: 80, evidence: "partial" }, // high
+        ecology: { score: 50, evidence: "partial" }, // medium
+        power: { score: 20, evidence: "partial" }, // low
+        embeddedness: { score: null, evidence: "no_signal" }, // none
+        posture: { score: 66, evidence: "partial" }, // high (boundary)
+      },
+    });
+
+    expect(matchesAxisMinimum(company, "substance", "high")).toBe(true);
+    expect(matchesAxisMinimum(company, "posture", "high")).toBe(true);
+    expect(matchesAxisMinimum(company, "ecology", "high")).toBe(false);
+    expect(matchesAxisMinimum(company, "power", "high")).toBe(false);
+    expect(matchesAxisMinimum(company, "embeddedness", "high")).toBe(false);
   });
 
   it("domain filters combine with AND semantics", () => {
@@ -129,23 +151,23 @@ describe("company filter helpers", () => {
     expect(Object.keys(SUB_MAJOR_DOMAIN_GROUPS).sort()).toEqual([...ISCO_SUB_MAJOR_CODES].sort());
   });
 
-  it("histogram includes unknown bucket", () => {
+  it("distribution keeps a no-signal bucket", () => {
     const buckets = getHistogramBuckets([makeCompany()], "power");
 
-    expect(buckets[0]).toMatchObject({ id: "unknown", count: 1 });
+    expect(buckets[0]).toMatchObject({ id: "none", count: 1 });
   });
 
-  it("histogram buckets aggregate by tens", () => {
+  it("buckets aggregate by focus level", () => {
     const companies = [
-      makeCompany({ company_id: "a", scores: { ...makeCompany().scores, ecology: { score: 55, evidence: "partial" } } }),
-      makeCompany({ company_id: "b", scores: { ...makeCompany().scores, ecology: { score: 62, evidence: "partial" } } }),
+      makeCompany({ company_id: "a", scores: { ...makeCompany().scores, ecology: { score: 20, evidence: "partial" } } }),
+      makeCompany({ company_id: "b", scores: { ...makeCompany().scores, ecology: { score: 50, evidence: "partial" } } }),
       makeCompany({ company_id: "c", scores: { ...makeCompany().scores, ecology: { score: 75, evidence: "partial" } } }),
     ];
     const buckets = getHistogramBuckets(companies, "ecology");
 
-    expect(buckets.find((bucket) => bucket.id === "50")?.count).toBe(1);
-    expect(buckets.find((bucket) => bucket.id === "60")?.count).toBe(1);
-    expect(buckets.find((bucket) => bucket.id === "70")?.count).toBe(1);
+    expect(buckets.find((bucket) => bucket.id === "low")?.count).toBe(1);
+    expect(buckets.find((bucket) => bucket.id === "medium")?.count).toBe(1);
+    expect(buckets.find((bucket) => bucket.id === "high")?.count).toBe(1);
   });
 
   it("counts update with other active filters", () => {
@@ -172,10 +194,92 @@ describe("company filter helpers", () => {
     const filters = {
       axisMinimums: DEFAULT_AXIS_MINIMUMS,
       selectedDomains: ["sales-commercial" as const],
+      favoritesOnly: false,
     };
 
     expect(filterCompanies(companies, filters).map((company) => company.company_id)).toEqual(["a", "b"]);
     expect(getDomainGroupCounts(companies, filters)["software-it"]).toBe(1);
     expect(getDomainGroupCounts(companies, filters)["science-research"]).toBe(1);
+  });
+
+  it("favorites-only matches saved companies", () => {
+    const favorite = makeCompany({ company_id: "favorite" });
+    const other = makeCompany({ company_id: "other" });
+    const filters = {
+      axisMinimums: DEFAULT_AXIS_MINIMUMS,
+      selectedDomains: [],
+      favoritesOnly: true,
+    };
+
+    expect(matchesCompanyFilters(favorite, filters, ["favorite"])).toBe(true);
+    expect(matchesCompanyFilters(other, filters, ["favorite"])).toBe(false);
+    expect(filterCompanies([favorite, other], filters, ["favorite"]).map((company) => company.company_id)).toEqual([
+      "favorite",
+    ]);
+  });
+
+  it("favorites-only can produce empty results", () => {
+    const filters = {
+      axisMinimums: DEFAULT_AXIS_MINIMUMS,
+      selectedDomains: [],
+      favoritesOnly: true,
+    };
+
+    expect(filterCompanies([makeCompany({ company_id: "a" })], filters, [])).toEqual([]);
+  });
+
+  it("favorites-only counts as an active filter", () => {
+    expect(
+      hasActiveFilters({
+        axisMinimums: DEFAULT_AXIS_MINIMUMS,
+        selectedDomains: [],
+        favoritesOnly: true,
+      })
+    ).toBe(true);
+  });
+
+  it("favorite count respects other active filters", () => {
+    const companies = [
+      makeCompany({
+        company_id: "a",
+        capability_tags: [{ isco_code: "243", prominence: "core" }],
+      }),
+      makeCompany({
+        company_id: "b",
+        capability_tags: [{ isco_code: "251", prominence: "core" }],
+      }),
+      makeCompany({
+        company_id: "c",
+        capability_tags: [{ isco_code: "243", prominence: "core" }],
+      }),
+    ];
+    const filters = {
+      axisMinimums: DEFAULT_AXIS_MINIMUMS,
+      selectedDomains: ["sales-commercial" as const],
+      favoritesOnly: false,
+    };
+
+    expect(getFavoriteCount(companies, filters, ["a", "b"])).toBe(1);
+  });
+
+  it("facet counts respect favorites-only", () => {
+    const companies = [
+      makeCompany({
+        company_id: "a",
+        capability_tags: [{ isco_code: "243", prominence: "core" }],
+      }),
+      makeCompany({
+        company_id: "b",
+        capability_tags: [{ isco_code: "251", prominence: "core" }],
+      }),
+    ];
+    const filters = {
+      axisMinimums: DEFAULT_AXIS_MINIMUMS,
+      selectedDomains: [],
+      favoritesOnly: true,
+    };
+
+    expect(getDomainGroupCounts(companies, filters, ["a"])["sales-commercial"]).toBe(1);
+    expect(getDomainGroupCounts(companies, filters, ["a"])["software-it"]).toBe(0);
   });
 });

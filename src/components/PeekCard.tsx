@@ -3,6 +3,7 @@ import type { Company } from "../lib/company-data/types";
 import { getLocalizedField } from "../lib/company-data";
 import { t } from "../lib/i18n";
 import { concealThenNavigate } from "../lib/transitions/bloom-curtain";
+import { readFavoriteIds, subscribeFavorites, toggleFavorite } from "../lib/favorites";
 import Pentagon from "./Pentagon";
 
 interface PeekCardProps {
@@ -36,6 +37,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   const [displayedId, setDisplayedId] = useState<string | null>(null);
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [faviconFailed, setFaviconFailed] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const cardRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ startY: number; cardH: number; moved: boolean } | null>(null);
   const skipExitAnimRef = useRef(false);
@@ -154,6 +156,11 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
   };
 
   useEffect(() => {
+    setFavoriteIds(readFavoriteIds());
+    return subscribeFavorites(setFavoriteIds);
+  }, []);
+
+  useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const initialSelected = searchParams.get("selected");
     if (initialSelected && companies.some((c) => c.company_id === initialSelected)) {
@@ -206,6 +213,7 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
 
   const ctaUrl = locale === "en" ? `/en/${company.company_id}/` : `/${company.company_id}/`;
   const monogram = (company.name || "?").trim().charAt(0).toUpperCase();
+  const isCurrentFavorite = favoriteIds.includes(company.company_id);
 
   // keep action buttons from starting a card drag or triggering the tap-to-open
   const stopDrag = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation();
@@ -227,11 +235,15 @@ export default function PeekCard({ companies, locale }: PeekCardProps) {
       {/* top-right actions: favourite + close (drag-down and tap-out also close) */}
       <div className="absolute right-3 top-3 z-10 flex gap-1.5">
         <button
-          className="ontwerp-icon-button is-compact"
-          aria-label={t("bookmark_label", locale)}
+          className={`ontwerp-icon-button is-compact favorite-toggle${isCurrentFavorite ? " is-favorite" : ""}`}
+          aria-label={isCurrentFavorite ? t("favorite_remove_label", locale) : t("bookmark_label", locale)}
+          aria-pressed={isCurrentFavorite}
           type="button"
           onPointerDown={stopDrag}
-          onClick={stopDrag}
+          onClick={(e) => {
+            stopDrag(e);
+            toggleFavorite(company.company_id);
+          }}
         >
           <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
             <path

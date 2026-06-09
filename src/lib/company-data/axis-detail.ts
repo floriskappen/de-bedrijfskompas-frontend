@@ -25,10 +25,15 @@ export function getEvidenceLabel(evidence: EvidenceLevel, locale: string): strin
   return t(EVIDENCE_MESSAGE_KEY[evidence], locale);
 }
 
+// Reserved `from` origin meaning "the map's filter sheet" rather than a company.
+export const AXIS_INFO_FILTERS_ORIGIN = "filters";
+
 // Per-axis info page lives at a language-neutral axis id under a localized
-// prefix. When opened from a company detail page, the company id is carried as
-// `?from=` so the info page's back button can return to that company.
-export function getAxisInfoHref(axis: AxisId, locale: string, fromCompanyId?: string): string {
+// prefix. The optional `from` origin is carried as `?from=` so the info page's
+// back button can return where the visitor came from: a company id returns to
+// that company's detail page, the reserved `filters` value returns to the map
+// with the filter sheet reopened.
+export function getAxisInfoHref(axis: AxisId, locale: string, from?: string): string {
   const base = locale === "en" ? `/en/axis/${axis}/` : `/as/${axis}/`;
-  return fromCompanyId ? `${base}?from=${encodeURIComponent(fromCompanyId)}` : base;
+  return from ? `${base}?from=${encodeURIComponent(from)}` : base;
 }

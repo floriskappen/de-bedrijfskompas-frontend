@@ -21,15 +21,15 @@ High-level checklist of what's left before the app feels complete. Each point is
 - [x] Surface it as a button on the map (core for new users); also linked from each axis page.
 
 ## Filters page
-- [ ] Move away from each axis in a separate card.
-- [ ] Each axis as a header row with a question-mark icon linking to its info page.
-- [ ] Improve the sliders.
-- [ ] Add a filter for favorites.
+- [x] Move away from each axis in a separate card.
+- [x] Each axis as a header row with a question-mark icon linking to its info page.
+- [x] Improve the sliders. (now a 3-level focus strip: columns align with the bars, selected minimum reads as "at least … focus" via a focus meter)
+- [x] Add a filter for favorites. (a switch at the top of the sheet)
 
 ## Favorites (local, in-browser only — no accounts/backend)
-- [ ] Save/remove favorites, persisted in the browser.
-- [ ] Filter on favorites in the filters page.
-- [ ] Dedicated favorites page with a list overview.
+- [x] Save/remove favorites, persisted in the browser.
+- [x] Filter on favorites in the filters page.
+- [x] Dedicated favorites page with a list overview.
 
 ## Ikigai matching (in-browser LLM, bring-your-own-key)
 The flow:
@@ -53,7 +53,7 @@ The flow:
 
 
 # General
-- [ ] For the axes, switch focus from numbers to 3 levels (e.g., "goed", "normaal", "weinig" - the names should indicate how good/bad they are at it, but how much focus is given on this subject. makes it more intuitive to filter on it. for example if i dont care about verankering, i want to include companies that are >=weinig. i would never want to include companies tht are "bad" at verankering.) which correspond to certain number ranges. Also nicer to filter. And say this on the detail page also in the dropdowns
+- [x] For the axes, switch focus from numbers to 3 levels — shipped as focus levels (weinig/gemiddelde/veel focus, + geen signaal), split at the pentagon's 33/66 rings. Filter slider and detail-page axis rows both use the level wording.
 
 ## Notes
 - Pipeline service: good shape.

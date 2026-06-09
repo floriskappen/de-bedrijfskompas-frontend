@@ -92,100 +92,59 @@ Each unclustered company pin SHALL render a compact composite-score badge instea
 
 ### Requirement: Map filtering
 
-The map SHALL filter visible companies by active axis minimums and selected work fields. Each axis filter has a minimum in `[0, 100]`; a minimum of `0` means no preference and MUST include companies with `null` for that axis, while any minimum above `0` MUST require a numeric score greater than or equal to that minimum. Selected work fields MUST combine with AND semantics: a company matches only when its ISCO minor-code projections include every selected work field. Filtering MUST update markers, clusters, and the empty state without changing the `selected` URL parameter.
+The map SHALL filter visible companies by active axis minimums, selected work fields, and an optional favorites-only toggle. Each axis filter has a focus-level minimum. A minimum of `none` means no preference and MUST include companies with `null` for that axis, while `low`, `medium`, and `high` require a numeric signal at that focus level or higher. Selected work fields MUST combine with AND semantics: a company matches only when its ISCO minor-code projections include every selected work field. When favorites-only is active, a company MUST also be present in the visitor's locally stored favorite ids. Filtering MUST update markers, clusters, and the empty state without changing the `selected` URL parameter except when the currently selected company no longer matches the active filters.
 
-#### Scenario: Axis minimum keeps unknowns at zero
+#### Scenario: Favorites-only shows saved companies
 
-- **WHEN** the power minimum is `0`
-- **THEN** companies with `scores.power.score: null` remain visible unless excluded by another active filter
+- **WHEN** the visitor has saved one company as a favorite
+- **AND** enables the favorites-only filter
+- **THEN** only otherwise matching favorite companies remain visible
 
-#### Scenario: Axis minimum excludes unknowns above zero
+#### Scenario: Favorites-only composes with other filters
 
-- **WHEN** the power minimum is `5`
-- **THEN** companies with `scores.power.score: null` are hidden from markers and clusters
+- **WHEN** favorites-only is active
+- **AND** the visitor also selects an axis minimum or work-field filter
+- **THEN** only favorite companies matching those additional filters remain visible
 
-#### Scenario: Work-field filters combine with AND semantics
+#### Scenario: Unfavoriting hidden selection clears peek card
 
-- **WHEN** `software-it` and `sales-commercial` are both selected
-- **THEN** only companies whose projected work fields include both values remain visible
-
-#### Scenario: Filtering clears hidden selection
-
-- **WHEN** the currently selected company no longer matches the active filters
+- **WHEN** favorites-only is active and the selected company is visible only because it is saved
+- **AND** the visitor removes that company from favorites
 - **THEN** the peek card closes and the `selected` URL parameter is removed
 
 ### Requirement: Filter panel
 
-The map SHALL expose an icon-only filters button in the top-right map chrome. Activating it SHALL open a bottom-sheet panel with a stepped slide-up animation. When filters are active, the button SHALL show a small active-filter count badge. The panel SHALL contain per-axis minimum sliders, score distribution histograms, work-field chips with counts, and a reset affordance. Axis minimum sliders SHALL sit under the numeric histogram buckets and MUST NOT include the unknown bucket in the slider track. If the current company data contains no projected work fields, the work-field section SHALL show a quiet empty message instead of zero-count chips. The panel MUST be operable on mobile viewports and MUST respect reduced-motion preferences by opening directly without stepped motion. When a peek card is open, the filter panel SHALL render above both the peek card and the map markers. The panel's header controls (reset and close) SHALL remain visible and operable while the panel body scrolls, and SHALL share a common height. The panel header SHALL also be draggable downward to dismiss the panel. Axis and work-field chip labels SHALL be localized to the active locale, while ISCO codes and work-field identifiers remain locale-neutral.
+The map SHALL expose an icon-only filters button in the top-right map chrome. Activating it SHALL open a bottom-sheet panel with a stepped slide-up animation. When filters are active, the button SHALL show a small active-filter count badge. The panel SHALL contain a favorites-only toggle, per-axis focus-level controls, focus-level distribution histograms, work-field chips with counts, and a reset affordance. The favorites-only toggle SHALL be presented as a switch at the top of the panel — above the axis controls — rather than as a tag/chip among the work-field chips, carrying its localized label, the matching favorite count, and a sliding on/off state. The toggle SHALL be enabled when the browser supports local storage, SHALL show selected state (`aria-pressed`) when active, and SHALL not remove saved favorites when reset clears filters. The filter panel SHALL NOT itself link to the favorites overview page; the overview is reached from the map chrome favorites button. Axis and work-field labels SHALL be localized to the active locale, while ISCO codes and work-field identifiers remain locale-neutral.
 
-#### Scenario: Icon-only filter button opens panel
+#### Scenario: Favorites switch counts as active
 
-- **WHEN** a user taps the top-right filters icon
-- **THEN** the bottom-sheet filter panel opens without navigating or changing locale
+- **WHEN** the visitor enables the favorites-only switch
+- **THEN** the filters button active count increases by one
 
-#### Scenario: Reset clears active filters
+#### Scenario: Favorites switch sits above the axes
 
-- **WHEN** active score or work-field filters exist and the user activates reset
-- **THEN** all axis minimums return to `0`, all work fields are deselected, and every otherwise renderable company is visible
+- **WHEN** the filter panel renders
+- **THEN** the favorites-only switch appears at the top of the panel, above the per-axis level controls, and the panel offers no separate favorites-overview link
 
-#### Scenario: Active filters are counted on button
+#### Scenario: Reset preserves saved favorites
 
-- **WHEN** one axis minimum and one work-field filter are active
-- **THEN** the filters button shows an active count of `2`
-
-#### Scenario: No work-field data shows empty section
-
-- **WHEN** the current company data contains no projected work-field values
-- **THEN** the work-field section shows that there are no work fields in the current data and does not render zero-count chips
-
-#### Scenario: Filter panel layers above an open peek card
-
-- **WHEN** a peek card is open and the user opens the filter panel
-- **THEN** the filter panel renders above the peek card and the map markers, not behind them
-
-#### Scenario: Panel header stays reachable while scrolling
-
-- **WHEN** the filter panel body is scrolled to its bottom
-- **THEN** the reset and close controls remain visible and operable at the top of the panel
-
-#### Scenario: Dragging the panel header dismisses the panel
-
-- **WHEN** the user drags the filter panel header downward past the dismiss threshold
-- **THEN** the filter panel closes
-
-#### Scenario: Reduced motion skips panel animation
-
-- **WHEN** a user whose system preference is reduced motion opens the filter panel
-- **THEN** the panel appears directly in its open state without stepped motion
+- **WHEN** favorites-only is active and the visitor activates reset
+- **THEN** favorites-only becomes inactive
+- **AND** saved favorite companies remain saved
 
 ### Requirement: Filter distributions and counts
 
-Each score filter SHALL show a leftmost unknown bucket for `null` scores and ten numeric histogram buckets covering `0-9`, `10-19`, `20-29`, `30-39`, `40-49`, `50-59`, `60-69`, `70-79`, `80-89`, and `90-100`. Numeric sliders MUST map directly to bucket starts `0`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, and `90`; setting the slider to `50` means a minimum score of `50`. Histogram counts MAY update against the current filter combination while excluding the facet currently being counted, but histogram bar height MUST use a stable scale from the unfiltered data so filtering companies out never makes another bucket visually grow. Work-field chips SHALL show a count and MUST update against the current filter combination while excluding the work field currently being counted.
+Each axis filter SHALL show a leftmost no-signal bucket for `null` scores and focus-level buckets for low, medium, and high. Axis histogram counts MAY update against the current filter combination while excluding the axis currently being counted, but histogram bar height MUST use a stable scale from the unfiltered data so filtering companies out never makes another bucket visually grow. Work-field chips and the favorites-only toggle SHALL show counts that update against the current filter combination while excluding the facet currently being counted.
 
-#### Scenario: Histogram includes unknown bucket
+#### Scenario: Favorites count respects other filters
 
-- **WHEN** an axis has companies with `score: null`
-- **THEN** that axis histogram shows an unknown bucket count to the left of the numeric buckets
+- **WHEN** the visitor selects a work-field or axis filter
+- **THEN** the favorites-only toggle count shows saved companies matching those other active filters
 
-#### Scenario: Histogram buckets aggregate by tens
+#### Scenario: Other facet counts respect favorites-only
 
-- **WHEN** ecology scores include `55`, `62`, and `75`
-- **THEN** the histogram counts them in `50-59`, `60-69`, and `70-79`
-
-#### Scenario: Slider threshold aligns with bucket label
-
-- **WHEN** a user sets the slider thumb to the `50` position under a score histogram
-- **THEN** the active minimum for that axis is `50`, so every visible company must have a numeric score greater than or equal to `50` on that axis unless the minimum is reset to `0`
-
-#### Scenario: Counts update with other active filters
-
-- **WHEN** a user selects `sales-commercial`
-- **THEN** score histograms and other work-field counts update to show counts for companies matching `sales-commercial`
-
-#### Scenario: Histogram bars do not grow while filtering
-
-- **WHEN** a user raises an axis minimum that removes companies from the visible set
-- **THEN** buckets in other score histograms may shrink or stay the same height, but they do not grow taller
+- **WHEN** favorites-only is active
+- **THEN** axis histograms and work-field chip counts are calculated from favorite companies that match the other active filters
 
 ### Requirement: Pin selection and URL state
 
@@ -213,67 +172,14 @@ Tapping a pin MUST select the corresponding company and persist the selection in
 
 ### Requirement: Peek card content
 
-When a company is selected, a peek card MUST overlay the bottom of the map showing — in order — a pentagon of all five axis scores, the company's identity (an identity tile, name, locality with optional distance), and its tagline in the current locale as plain inline text. The identity tile SHALL render the company's favicon when `favicon_url` is present and loads successfully, and SHALL fall back to a square ink monogram tile (the uppercase first character of `name` on the ink background) when `favicon_url` is absent or the favicon image fails to load. The card's top-right corner SHALL carry two icon buttons: an inert bookmark affordance and an explicit close (✕) button that clears the selection. The whole card SHALL be the primary affordance: a tap (or Enter/Space when focused) opens the company's detail route, and the whole card SHALL be the drag surface. Dragging down past a small threshold closes the card; releasing before it snaps back; dragging upward MUST feel very stiff (rubber-band with a small hard cap) and snap back on release. The card SHALL slide in from the bottom with a snappy, stepped animation, and the map SHALL pan in parallel so the selected pin sits in the centre of the strip of map still visible above the card.
+When a company is selected, a peek card MUST overlay the bottom of the map showing, in order, a pentagon of all five axis scores, the company's identity, and its tagline in the current locale as plain inline text. The identity tile SHALL render the company's favicon when `favicon_url` is present and loads successfully, and SHALL fall back to a square ink monogram tile when `favicon_url` is absent or the favicon image fails to load. The card's top-right corner SHALL carry two icon buttons: a favorite toggle and an explicit close button that clears the selection. The whole card SHALL be the primary affordance: a tap or Enter/Space when focused opens the company's detail route, and the whole card SHALL be the drag surface.
 
-#### Scenario: Pentagon leads, then identity, then tagline
+#### Scenario: Favorite toggle does not open detail page
 
-- **WHEN** the peek card renders for a company whose `name` is "Fairphone"
-- **THEN** the pentagon of five axis scores appears first, the identity tile sits beside the company name "Fairphone" with a locality line reading `address.city` underneath, and the current-locale tagline renders as plain text below
-
-#### Scenario: Identity tile prefers favicon, falls back to monogram
-
-- **WHEN** a selected company has a `favicon_url` that loads successfully
-- **THEN** the identity tile renders the favicon
-
-#### Scenario: Identity tile falls back when favicon is missing or broken
-
-- **WHEN** a selected company has no `favicon_url`, or its favicon fails to load
-- **THEN** the identity tile renders the square ink monogram (uppercase first character of `name`) instead
-
-#### Scenario: Tagline renders in the current locale
-
-- **WHEN** a user on `/` selects `gravity`
-- **THEN** the tagline body renders `gravity.nl.tagline`; on `/en/`, it renders `gravity.en.tagline`
-
-#### Scenario: Locality line appends distance when geolocated
-
-- **WHEN** user location is active and the selected company has a `latlng`
-- **THEN** the locality line reads `{city} · {distance} km` (distance to one decimal place)
-
-#### Scenario: Pentagon renders all five axes including nulls
-
-- **WHEN** a selected company has `scores.power.score: null`
-- **THEN** the pentagon's power arm renders in the null style (dashed spoke, "?" glyph) while the other four arms render at their numeric values
-
-#### Scenario: Selected pin stays visible above the peek card
-
-- **WHEN** a user taps a pin and the peek card opens
-- **THEN** the map pans so the pin sits in the centre of the strip of map still visible above the card, not behind it
-
-#### Scenario: Stepped slide-in on appear; in-place swap on switch
-
-- **WHEN** the card appears after being closed
-- **THEN** it slides up from the bottom with a snappy, stepped (non-smooth) motion, and the map pan completes in parallel; tapping a different pin while the card is open swaps content in place without replaying the slide-in
-
-#### Scenario: Tapping the card opens the detail route
-
-- **WHEN** the user taps the card without dragging it, or presses Enter/Space while it is focused
-- **THEN** the browser navigates to the selected company's detail route
-
-#### Scenario: Dragging down closes the card; short drag snaps back
-
-- **WHEN** the user drags the card down past roughly a third of its height and releases
-- **THEN** the card continues down to closed and the selection clears; if released before the threshold, the card snaps back to its open position, the selection is preserved, and no navigation occurs
-
-#### Scenario: Up-drag is stiff and bounded
-
-- **WHEN** the user drags the card upward
-- **THEN** the card resists strongly, never lifting more than a small hard cap, and snaps back on release; it never navigates to the full profile
-
-#### Scenario: Close and bookmark buttons do not drag or navigate
-
-- **WHEN** the user presses the top-right close (✕) or bookmark button
-- **THEN** the press does not start a card drag or open the detail route; the close button clears the selection and closes the card, and the bookmark is inert
+- **WHEN** a visitor activates the peek-card favorite toggle
+- **THEN** the selected company favorite state changes
+- **AND** the peek card remains open
+- **AND** the visitor is not navigated to the detail page
 
 ### Requirement: Detail navigation
 
@@ -309,17 +215,12 @@ The page MUST display a geolocation toggle button on the map. Activating the but
 
 ### Requirement: Map chrome
 
-The map experience MUST surface two icon-only chrome buttons anchored above the basemap: a filters button in the top-right, and a philosophy / "why this site" button in the top-left. Both controls SHALL use the map page visual idiom: sharp corners, paper background, 1px ink border, and mono-accessible labeling via `aria-label`. Activating the filters button SHALL open the filter panel. Activating the philosophy button SHALL navigate to the philosophy page (`/over/` for Dutch, `/en/about/` for English).
+The map experience MUST surface icon-only chrome controls anchored above the basemap for filters, project context, and the favorites overview. These controls SHALL use the map page visual idiom: sharp corners, paper background, 1px ink border, and accessible labeling via `aria-label`. Activating the filters button SHALL open the filter panel. Activating the project-context button SHALL navigate to the philosophy page (`/over/` for Dutch, `/en/about/` for English). Activating the favorites button SHALL navigate to the favorites overview page (`/favorieten/` for Dutch, `/en/favorites/` for English).
 
-#### Scenario: Filters button opens panel
+#### Scenario: Favorites chrome button opens overview
 
-- **WHEN** a user taps the filters button
-- **THEN** the filter panel opens and the URL does not change
-
-#### Scenario: Philosophy button opens the about page
-
-- **WHEN** a user taps the top-left philosophy button
-- **THEN** they are taken to the philosophy page for the current locale (`/over/` for Dutch, `/en/about/` for English)
+- **WHEN** a visitor activates the map favorites button
+- **THEN** they are taken to the localized favorites overview page
 
 ### Requirement: Visual design system
 
@@ -420,4 +321,18 @@ Each rendered work-field filter chip SHALL include a compact icon that is stable
 
 - **WHEN** a work-field chip is visible in the filter panel
 - **THEN** the chip renders the icon assigned to that work-field identifier
+
+### Requirement: Saved-company map marker
+
+A company's map marker SHALL carry a small favorite mark (an accent star pinned to the top-right of its score tag) when that company is in the visitor's locally stored favorites, and SHALL omit the mark otherwise. The mark SHALL update live as favorites change — without a page reload — and applies to both the interactive (Mapbox) markers and the non-WebGL fallback markers.
+
+#### Scenario: Saved company shows a favorite mark
+
+- **WHEN** a company is saved as a favorite and its marker is visible on the map
+- **THEN** its marker shows the favorite mark on the top-right of the score tag
+
+#### Scenario: Favorite mark clears when unsaved
+
+- **WHEN** the visitor removes a visible company from favorites
+- **THEN** that company's marker drops the favorite mark without a page reload
 

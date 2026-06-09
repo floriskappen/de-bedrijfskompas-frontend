@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { AxisId, Company, EvidenceLevel } from "../lib/company-data/types";
 import { AXIS_IDS } from "../lib/company-data/types";
 import { getLocalizedField } from "../lib/company-data";
 import { formatLastChecked } from "../lib/company-data/last-checked";
-import { getAxisLabel } from "../lib/i18n/labels";
+import { getAxisLabel, getFocusLevelLabel } from "../lib/i18n/labels";
 import { t } from "../lib/i18n";
+import { getFocusLevel } from "../lib/company-data/focus-level";
 import {
   getAxisInfoHref,
   getEvidenceLabel,
@@ -12,67 +13,14 @@ import {
   type MoonType,
 } from "../lib/company-data/axis-detail";
 import { concealThenNavigate } from "../lib/transitions/bloom-curtain";
+import { readFavoriteIds, subscribeFavorites, toggleFavorite } from "../lib/favorites";
+import AxisGlyph from "./AxisGlyph";
+import FocusMeter from "./FocusMeter";
 import Pentagon from "./Pentagon";
 
 interface CompanyDetailProps {
   company: Company;
   locale: "nl" | "en";
-}
-
-// ───────── clean line glyph per axis (ported from the hi-fi design) ─────────
-function AxisGlyph({ axis, size = 22, muted }: { axis: AxisId; size?: number; muted?: boolean }) {
-  const stroke = muted ? "var(--color-text-faint)" : "var(--color-text-soft)";
-  const sp = {
-    width: size,
-    height: size,
-    viewBox: "0 0 20 20",
-    fill: "none",
-    stroke,
-    strokeWidth: 1.3,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true,
-  };
-  switch (axis) {
-    case "substance": // a tool / object
-      return (
-        <svg {...sp}>
-          <rect x="3" y="3" width="14" height="14" rx="2" />
-          <rect x="7" y="7" width="6" height="6" fill={stroke} stroke="none" />
-        </svg>
-      );
-    case "ecology": // a leaf
-      return (
-        <svg {...sp}>
-          <path d="M10 17 C 4 14, 3 8, 10 3 C 17 8, 16 14, 10 17 Z" />
-          <path d="M10 16 L 10 8" />
-        </svg>
-      );
-    case "power": // pyramid / hierarchy
-      return (
-        <svg {...sp}>
-          <path d="M10 3 L 17 16 L 3 16 Z" />
-          <line x1="6.5" y1="12" x2="13.5" y2="12" />
-          <line x1="8" y1="9" x2="12" y2="9" />
-        </svg>
-      );
-    case "embeddedness": // map pin
-      return (
-        <svg {...sp}>
-          <path d="M10 17 C 4 12, 4 6, 10 3 C 16 6, 16 12, 10 17 Z" />
-          <circle cx="10" cy="8.5" r="2.2" fill={stroke} stroke="none" />
-        </svg>
-      );
-    case "posture": // chart trending up
-      return (
-        <svg {...sp}>
-          <polyline points="3,15 8,10 11,13 17,5" />
-          <polyline points="13,5 17,5 17,9" />
-        </svg>
-      );
-    default:
-      return null;
-  }
 }
 
 function MoonGlyph({ type, size = 9 }: { type: MoonType; size?: number }) {
@@ -133,6 +81,10 @@ function AxisRow({
   const detail = company.scores[axis];
   const evidence: EvidenceLevel = detail?.evidence ?? "no_signal";
   const unknown = evidence === "no_signal" || detail?.score === null || detail?.score === undefined;
+  // Collapsed rows show the focus level as a compact meter; a no-signal axis
+  // shows the hollow "none" meter and reads as "geen signaal".
+  const meterLevel = unknown ? "none" : getFocusLevel(detail?.score);
+  const levelLabel = unknown ? t("evidence_none", locale) : getFocusLevelLabel(meterLevel, locale);
   const label = getAxisLabel(axis, locale);
   const reason: string | undefined = getLocalizedField(company, locale, `scores.${axis}.reason`);
   const explainer =
@@ -149,7 +101,7 @@ function AxisRow({
         data-axis={axis}
         className="flex w-full items-center gap-3.5 py-4 text-left"
       >
-        <AxisGlyph axis={axis} muted={unknown} />
+        <AxisGlyph axis={axis} size={22} muted={unknown} />
         <span
           className={`min-w-0 flex-1 font-sans text-[22px] leading-none normal-case ${
             unknown ? "text-ink-quiet" : "text-ink"
@@ -157,9 +109,8 @@ function AxisRow({
         >
           {label}
         </span>
-        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-quiet">
-          <MoonGlyph type={getMoonType(evidence)} size={8} />
-          {getEvidenceLabel(evidence, locale)}
+        <span data-axis-level={axis} data-level={meterLevel} aria-label={levelLabel}>
+          <FocusMeter level={meterLevel} label={levelLabel} />
         </span>
         <svg
           width="10"
@@ -183,6 +134,10 @@ function AxisRow({
       <div className={`axis-panel${expanded ? " is-open" : ""}`}>
         <div className="axis-panel-inner" aria-hidden={!expanded}>
           <div className="ml-9 pb-4">
+            <div data-axis-evidence={axis} className="mb-3 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-quiet">
+              <MoonGlyph type={getMoonType(evidence)} size={8} />
+              {getEvidenceLabel(evidence, locale)}
+            </div>
             {reason && (
               <p className="mb-3.5 font-sans text-[16px] leading-snug text-ink-soft">{reason}</p>
             )}
@@ -210,30 +165,46 @@ function AxisRow({
 export default function CompanyDetail({ company, locale }: CompanyDetailProps) {
   const [openId, setOpenId] = useState<AxisId | null>(AXIS_IDS[0]);
   const [faviconFailed, setFaviconFailed] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  // Where "back" returns to. Defaults to the map (the peek-card origin); a
+  // `?from=favorites` marker means the visitor came from the favorites page.
+  const [fromFavorites, setFromFavorites] = useState(false);
 
   const city = company.address?.city || t("address_fallback", locale);
   const tagline = getLocalizedField(company, locale, "tagline") || t("tagline_fallback", locale);
   const monogram = (company.name || "?").trim().charAt(0).toUpperCase();
-  // back returns to the map with this company still selected, so the peek card
-  // it was opened from re-opens.
   const base = locale === "en" ? "/en/" : "/";
+  // back to the map keeps this company selected, so the peek card it was opened
+  // from re-opens; back to favorites returns to the shortlist.
   const mapHref = `${base}?selected=${encodeURIComponent(company.company_id)}`;
+  const favoritesHref = locale === "en" ? "/en/favorites/" : "/favorieten/";
+  const backHref = fromFavorites ? favoritesHref : mapHref;
+  const backLabel = fromFavorites ? t("back_to_favorites", locale) : t("back_to_map", locale);
   const lastChecked = formatLastChecked(company.updated_at, locale);
+  const isCurrentFavorite = favoriteIds.includes(company.company_id);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setFromFavorites(new URLSearchParams(window.location.search).get("from") === "favorites");
+    }
+    setFavoriteIds(readFavoriteIds());
+    return subscribeFavorites(setFavoriteIds);
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-md px-5 pb-16 pt-4">
       {/* top bar: back (keeps the company selected) + favourite + website */}
       <div className="mb-5 flex items-center justify-between">
         <a
-          href={mapHref}
+          href={backHref}
           className="ontwerp-icon-button is-compact"
-          aria-label={t("back_to_map", locale)}
+          aria-label={backLabel}
           onClick={(e) => {
             // reverse of the peek-card bloom: paper blooms up from the bottom
-            // (where the card will re-appear), then the map plays its reveal
+            // (where the card will re-appear), then the destination reveals
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
-            concealThenNavigate(mapHref, window.innerWidth / 2, window.innerHeight * 0.8);
+            concealThenNavigate(backHref, window.innerWidth / 2, window.innerHeight * 0.8);
           }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -249,8 +220,10 @@ export default function CompanyDetail({ company, locale }: CompanyDetailProps) {
         <div className="flex gap-1.5">
           <button
             type="button"
-            className="ontwerp-icon-button is-compact"
-            aria-label={t("bookmark_label", locale)}
+            className={`ontwerp-icon-button is-compact favorite-toggle${isCurrentFavorite ? " is-favorite" : ""}`}
+            aria-label={isCurrentFavorite ? t("favorite_remove_label", locale) : t("bookmark_label", locale)}
+            aria-pressed={isCurrentFavorite}
+            onClick={() => toggleFavorite(company.company_id)}
           >
             <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
               <path

@@ -3,9 +3,7 @@
 ## Purpose
 
 The five per-axis explanation pages: a static, bilingual reading page for each axis (substance, ecology, power, embeddedness, posture) describing in plain first-person prose what the axis means, what moves a company on it, and how a silent website is read — with origin-aware back navigation, cross-links to the other axes and the philosophy page, footnotes for contestable claims, and a directional reveal.
-
 ## Requirements
-
 ### Requirement: Routes
 
 Each of the five axes SHALL have a static explanation page, served at `/as/{axisId}/` for Dutch and `/en/axis/{axisId}/` for English, where `axisId` is one of the language-neutral axis IDs `substance`, `ecology`, `power`, `embeddedness`, `posture`. The locale is determined by the route prefix. An unknown `axisId` redirects to the 404 page.
@@ -45,7 +43,7 @@ The page SHALL show how readable the axis is from public text as a three-level m
 
 ### Requirement: Footnotes
 
-Contestable claims in the prose MAY carry footnote markers rendered as tiny numbered links at the end of the paragraph. Activating a marker moves to the matching note in a list at the bottom of the page, and the note links back to the marker. A single paragraph MAY reference more than one note.
+Contestable claims in the prose MAY carry footnote markers. The page SHALL render any such markers as tiny numbered links at the end of the paragraph, and activating a marker SHALL move to the matching note in a list at the bottom of the page, where the note links back to the marker. A single paragraph MAY reference more than one note.
 
 #### Scenario: Footnote marker resolves
 
@@ -54,12 +52,17 @@ Contestable claims in the prose MAY carry footnote markers rendered as tiny numb
 
 ### Requirement: Origin-aware back navigation
 
-The page SHALL offer a back control. When the page is opened with a `from` query parameter naming a company, the back control SHALL return to that company's detail page (`/{from}/` for Dutch, `/en/{from}/` for English). When `from` is absent, the back control SHALL return to the map.
+The page SHALL offer a back control whose target depends on the `from` query parameter. When `from` names a company, the back control SHALL return to that company's detail page (`/{from}/` for Dutch, `/en/{from}/` for English). When `from` is the reserved value `filters`, the back control SHALL return to the map for the current locale with the filter sheet reopened. When `from` is absent, the back control SHALL return to the map.
 
 #### Scenario: Back to the originating company
 
 - **WHEN** the axis page is opened with `?from={company_id}`
 - **THEN** the back control points to that company's detail page in the current locale
+
+#### Scenario: Back to the filters
+
+- **WHEN** the axis page is opened with `?from=filters`
+- **THEN** the back control points to the map route for the current locale and the map reopens the filter sheet on arrival
 
 #### Scenario: Back to the map by default
 
@@ -84,3 +87,4 @@ On load the page SHALL play a directional paper-bloom reveal sweeping diagonally
 
 - **WHEN** the visitor prefers reduced motion
 - **THEN** the page renders without the bloom reveal and remains fully usable
+

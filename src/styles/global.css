@@ -203,6 +203,24 @@ em {
   background-size: 600px 600px, auto;
 }
 
+/* the whole favorites card is the affordance (like the peek card): the name
+   link stretches to cover the card, so a click anywhere opens the detail page.
+   The save star sits above it (higher z-index) and stays independently clickable. */
+.favorite-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* favorites list items sit on the wine ramp's warm surface token (a touch
+   deeper than the page) so they read as themed cards, not cream tiles */
+.ontwerp-card.is-warm-surface {
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-warm);
+  background-size: 600px 600px, auto;
+}
+
 /* the detail page wears the same warm grained surface as the peek card it
    blooms out of, so the two read as one continuous sheet */
 .surface-warm-grain {
@@ -339,6 +357,27 @@ em {
 }
 
 .ontwerp-button.is-accent:hover {
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-soft);
+}
+
+.favorite-toggle.is-favorite,
+.favorite-toggle[aria-pressed="true"] {
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-base);
+  border-color: var(--color-accent-base);
+  border-bottom-width: 1px;
+  transform: translateY(2px);
+}
+
+.favorite-toggle.is-favorite svg path,
+.favorite-toggle[aria-pressed="true"] svg path {
+  fill: currentColor;
+}
+
+.favorite-toggle.is-favorite:hover,
+.favorite-toggle[aria-pressed="true"]:hover {
   color: var(--color-text-on-ink);
   background: var(--color-accent-soft);
   border-color: var(--color-accent-soft);
@@ -559,6 +598,204 @@ em {
 
 .filter-range {
   accent-color: var(--color-accent-base);
+}
+
+/* three-bar focus meter — filled bars show the level (low 1 · medium 2 · high
+   3); hollow bars sit above it. no-signal shows all three bars hollow + dashed
+   so it reads as "unknown", never as zero or bad. */
+.focus-meter {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.focus-meter-bar {
+  width: 3px;
+  border: 1px solid var(--color-border-strong);
+}
+
+.focus-meter-bar:nth-child(1) {
+  height: 6px;
+}
+
+.focus-meter-bar:nth-child(2) {
+  height: 9px;
+}
+
+.focus-meter-bar:nth-child(3) {
+  height: 12px;
+}
+
+.focus-meter-bar.is-on {
+  background: var(--color-text-default);
+  border-color: var(--color-text-default);
+}
+
+.focus-meter-bar.is-off {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-border-strong) 65%, transparent);
+}
+
+.focus-meter.is-none .focus-meter-bar {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--color-border-quiet);
+}
+
+/* tiny per-axis "?" link — a mono utility mark, sized to sit beside the axis
+   name rather than read as a button */
+.axis-info-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--color-border-quiet);
+  color: var(--color-text-quiet);
+  font: var(--badge-typography);
+  font-size: 9px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.axis-info-dot:hover {
+  color: var(--color-text-default);
+  border-color: var(--color-border-strong);
+}
+
+/* squared paper toggle switch — favorites-only lives at the top of the sheet as
+   a switch, not a chip. on = accent fill, the knob slides with stepped motion. */
+.favorites-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-default);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 3px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.favorites-switch:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 22px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-page);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-text-soft);
+  transition: transform 140ms steps(4, end), background 140ms steps(2, end);
+}
+
+.favorites-switch[aria-pressed="true"] .switch-track {
+  background: var(--color-accent-base);
+  border-color: var(--color-accent-base);
+}
+
+.favorites-switch[aria-pressed="true"] .switch-knob {
+  transform: translateX(20px);
+  background: var(--color-text-on-ink);
+}
+
+/* the axis level strip — four columns (none/weinig/gemiddeld/veel) that double
+   as the distribution and the minimum control. columns line up 1:1 with their
+   bars, so dragging across a bar boundary flips the minimum exactly there. */
+.filter-levels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: end;
+  gap: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.filter-level-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-level-bar-wrap {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 34px;
+}
+
+.filter-level-bar {
+  width: 100%;
+  background: var(--color-text-default);
+}
+
+.filter-level-col.is-dim .filter-level-bar {
+  background: var(--color-border-strong);
+  opacity: 0.45;
+}
+
+.filter-level-tick {
+  font: var(--badge-typography);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  color: var(--color-text-quiet);
+  white-space: nowrap;
+}
+
+.filter-level-col.is-dim .filter-level-tick {
+  opacity: 0.55;
+}
+
+/* underline under every included column — a continuous accent rule that reads
+   as "these levels pass", reinforcing the at-least minimum */
+.filter-level-rule {
+  width: 100%;
+  height: 2px;
+  background: transparent;
+}
+
+.filter-level-col.is-included .filter-level-rule {
+  background: var(--color-accent-base);
+}
+
+/* favorite marker on the map — a small accent star pinned to the top-right of a
+   saved company's score tag */
+.pin-favorite-mark {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-on-ink);
+  background: var(--color-accent-base);
+  border: 1.5px solid var(--color-surface-page);
+  pointer-events: none;
 }
 
 /* corner-only warm bloom + grain over the wine basemap — mirrors the ontwerp

@@ -35,4 +35,15 @@ describe("axis info-page links", () => {
       expect(getAxisInfoHref(axis, "en")).toBe(`/en/axis/${axis}/`);
     }
   });
+
+  it("carries a company origin as from=", () => {
+    expect(getAxisInfoHref("ecology", "nl", "land-life-company")).toBe(
+      "/as/ecology/?from=land-life-company"
+    );
+  });
+
+  it("encodes the reserved filters origin as from=filters", () => {
+    expect(getAxisInfoHref("ecology", "nl", "filters")).toBe("/as/ecology/?from=filters");
+    expect(getAxisInfoHref("power", "en", "filters")).toBe("/en/axis/power/?from=filters");
+  });
 });

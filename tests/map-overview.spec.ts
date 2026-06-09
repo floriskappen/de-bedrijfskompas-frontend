@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { DOMAIN_ICON_PATHS } from "../src/lib/company-data/domain-icons";
+import { FAVORITES_STORAGE_KEY } from "../src/lib/favorites";
 
 test.describe("map-overview E2E tests", () => {
   
@@ -394,7 +395,7 @@ test.describe("map-overview E2E tests", () => {
     await page.goto("/?selected=gravity");
     await expect(page.locator("#peek-card-title")).toHaveText("Gravity B.V.");
 
-    await setTestFilters(page, { axisMinimums: { power: 5 } });
+    await setTestFilters(page, { axisMinimums: { power: "high" } });
 
     await expect(page).not.toHaveURL(/.*selected=.*/);
     await expect(page.locator("#peek-card-title")).toHaveCount(0);
@@ -414,7 +415,7 @@ test.describe("map-overview E2E tests", () => {
 
   test("reset clears active filters", async ({ page }) => {
     await page.goto("/");
-    await setTestFilters(page, { axisMinimums: { power: 5 }, selectedDomains: ["sales-commercial"] });
+    await setTestFilters(page, { axisMinimums: { power: "high" }, selectedDomains: ["sales-commercial"] });
     await expect(page.locator("#filters-active-count")).toHaveText("2");
     await expect(page.locator("#filters-active-count")).toHaveClass(/filter-count-badge/);
 
@@ -432,7 +433,11 @@ test.describe("map-overview E2E tests", () => {
     expect(activeTagStyle.transform).not.toBe("none");
     await page.locator("#filters-reset").click();
 
+    // every axis slider returns to the `none` stop (ordinal 0)
     await expect(page.locator('input[aria-label="macht minimum"]')).toHaveValue("0");
+    await expect(page.locator('input[aria-label="ecologie minimum"]')).toHaveValue("0");
+    await expect(page.locator('[data-axis-minimum="power"]')).toHaveAttribute("data-level", "none");
+    await expect(page.locator('[data-axis-minimum="power"]')).toHaveText("geen voorkeur");
     await expect(page.locator('[data-domain-filter="sales-commercial"]')).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("#filters-active-count")).toHaveCount(0);
   });
@@ -446,42 +451,165 @@ test.describe("map-overview E2E tests", () => {
     expect(animationName).toBe("none");
   });
 
-  test("histogram includes unknown bucket", async ({ page }) => {
+  test("distribution keeps a no-signal bucket", async ({ page }) => {
     await page.goto("/");
     await page.locator("#filters-button").click();
 
-    await expect(page.locator('[data-axis="power"][data-bucket="unknown"]')).toBeVisible();
+    await expect(page.locator('[data-axis="power"][data-bucket="none"]')).toBeVisible();
   });
 
-  test("histogram buckets aggregate by tens", async ({ page }) => {
+  test("buckets aggregate by focus level", async ({ page }) => {
     await page.goto("/");
     await page.locator("#filters-button").click();
 
-    await expect(page.locator('[data-axis="ecology"][data-bucket="50"]')).toBeVisible();
-    await expect(page.locator('[data-axis="ecology"][data-bucket="60"]')).toBeVisible();
-    await expect(page.locator('[data-axis="ecology"][data-bucket="70"]')).toBeVisible();
+    await expect(page.locator('[data-axis="ecology"][data-bucket="low"]')).toBeVisible();
+    await expect(page.locator('[data-axis="ecology"][data-bucket="medium"]')).toBeVisible();
+    await expect(page.locator('[data-axis="ecology"][data-bucket="high"]')).toBeVisible();
   });
 
-  test("bucket threshold aligns with visible bucket labels", async ({ page }) => {
+  test("level slider filters companies by minimum level", async ({ page }) => {
     await page.goto("/");
     await page.locator("#filters-button").click();
 
-    await page.locator('input[aria-label="ecologie minimum"]').fill("50");
+    // tapping the medium column on the level strip sets a "at least medium" minimum
+    await page.locator('[data-axis="ecology"][data-bucket="medium"]').click();
 
-    await expect(page.locator('input[aria-label="ecologie minimum"]')).toHaveValue("50");
-    await expect(page.locator('[data-axis-filter="ecology"]')).toContainText("min 50");
+    await expect(page.locator('input[aria-label="ecologie minimum"]')).toHaveValue("2");
+    await expect(page.locator('[data-axis-minimum="ecology"]')).toHaveAttribute("data-level", "medium");
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
   });
 
-  test("histogram bars do not grow when filtering removes companies", async ({ page }) => {
+  test("tapping the none column clears the axis minimum", async ({ page }) => {
     await page.goto("/");
     await page.locator("#filters-button").click();
 
-    const bucket = page.locator('[data-axis="ecology"][data-bucket="60"] > div').first();
+    await page.locator('[data-axis="ecology"][data-bucket="high"]').click();
+    await expect(page.locator('[data-axis-minimum="ecology"]')).toHaveAttribute("data-level", "high");
+
+    // the leftmost (none) column is "any" — selecting it drops the minimum again
+    await page.locator('[data-axis="ecology"][data-bucket="none"]').click();
+    await expect(page.locator('[data-axis-minimum="ecology"]')).toHaveAttribute("data-level", "none");
+    await expect(page.locator('[data-axis-minimum="ecology"]')).toHaveText("geen voorkeur");
+    await expect(page.locator("#filters-active-count")).toHaveCount(0);
+  });
+
+  test("saved company shows a favorite mark on its map pin", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => {
+        window.localStorage.setItem(key, JSON.stringify({ companyIds: ["land-life-company"] }));
+      },
+      { key: FAVORITES_STORAGE_KEY }
+    );
+    await page.goto("/");
+    await setZoom(page, 16);
+
+    await expect(page.locator("#pin-land-life-company .pin-favorite-mark")).toBeVisible();
+  });
+
+  test("distribution bars do not grow when filtering removes companies", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    const bucket = page.locator('[data-axis="ecology"][data-bucket="medium"] .filter-level-bar').first();
     const before = await bucket.evaluate((el) => el.getBoundingClientRect().height);
-    await setTestFilters(page, { axisMinimums: { substance: 70 } });
+    await setTestFilters(page, { axisMinimums: { substance: "high" } });
     const after = await bucket.evaluate((el) => el.getBoundingClientRect().height);
 
     expect(after).toBeLessThanOrEqual(before);
+  });
+
+  test("axis row question mark links to its info page", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    await expect(page.locator('[data-axis-filter-info="ecology"]')).toHaveAttribute(
+      "href",
+      "/as/ecology/?from=filters"
+    );
+  });
+
+  test("favorites filter is active and reset preserves saved favorites", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => {
+        window.localStorage.setItem(key, JSON.stringify({ companyIds: ["land-life-company"] }));
+      },
+      { key: FAVORITES_STORAGE_KEY }
+    );
+    await page.goto("/");
+    await page.locator("#filters-button").click();
+
+    const favorites = page.locator("#favorites-filter");
+    await expect(favorites).toBeVisible();
+    await expect(favorites).toBeEnabled();
+    await expect(favorites).toHaveAttribute("aria-pressed", "false");
+    await expect(favorites).toContainText("1");
+
+    await favorites.click();
+    await expect(favorites).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
+
+    await setZoom(page, 16);
+    await expect(page.locator("[data-company-id]")).toHaveCount(1);
+    await expect(page.locator("#pin-land-life-company")).toBeVisible();
+
+    await page.locator("#filters-reset").click();
+    await expect(favorites).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#filters-active-count")).toHaveCount(0);
+    await expect
+      .poll(async () =>
+        page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) || "{}").companyIds, FAVORITES_STORAGE_KEY)
+      )
+      .toEqual(["land-life-company"]);
+  });
+
+  test("peek card favorite persists and favorites-only clears hidden selection", async ({ page }) => {
+    await page.goto("/?selected=land-life-company");
+
+    const favoriteButton = page.locator('#peek-card button[aria-label="voeg bladwijzer toe"]');
+    await expect(favoriteButton).toBeVisible();
+    await favoriteButton.click();
+    await expect(page.locator('#peek-card button[aria-label="verwijder favoriet"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await page.reload();
+    await expect(page.locator('#peek-card button[aria-label="verwijder favoriet"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await page.locator("#filters-button").click();
+    await page.locator("#favorites-filter").click();
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
+    await page.locator('button[aria-label="sluit filters"]').click();
+
+    await page.locator('#peek-card button[aria-label="verwijder favoriet"]').click();
+    await expect(page).not.toHaveURL(/.*selected=.*/);
+    await expect(page.locator("#peek-card-title")).toHaveCount(0);
+  });
+
+  test("map favorites chrome opens overview", async ({ page }) => {
+    await page.goto("/");
+
+    const button = page.locator("#favorites-button");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute("href", "/favorieten/");
+    await button.click();
+    await expect(page).toHaveURL(/\/favorieten\/$/);
+  });
+
+  test("axis info back from filters returns to map with the sheet open", async ({ page }) => {
+    // the axis info page's back link, when reached from the filters, points back
+    // to the map carrying the reopen signal
+    await page.goto("/as/ecology/?from=filters");
+    await expect(page.locator("#info-back")).toHaveAttribute("href", "/?filters=open");
+
+    // arriving on the map with that signal reopens the filter sheet
+    await page.goto("/?filters=open");
+    await expect(page.locator("#filters-panel")).toBeVisible();
+    // the one-shot signal is stripped so a reload would not reopen it
+    await expect(page).toHaveURL(/\/$|\/\?$/);
   });
 
   test("work-field counts update with active filters", async ({ page }) => {
@@ -583,7 +711,7 @@ test.describe("map-overview E2E tests", () => {
       const geolocatePosition = await page.locator("#geolocate-button").evaluate((el) => getComputedStyle(el).position);
       expect(geolocatePosition).toBe("absolute");
 
-      await setTestFilters(page, { axisMinimums: { power: 5 } });
+      await setTestFilters(page, { axisMinimums: { power: "high" } });
       const countStyle = await page.locator("#filters-active-count").evaluate((el) => {
         const style = getComputedStyle(el);
         return {
@@ -618,7 +746,7 @@ test.describe("map-overview E2E tests", () => {
 
     await page.locator("#filters-button").click();
     await expect(page.locator("#filters-panel")).toBeVisible();
-    await setTestFilters(page, { axisMinimums: { power: 5 } });
+    await setTestFilters(page, { axisMinimums: { power: "high" } });
     await expect(page).not.toHaveURL(/.*selected=.*/);
     await expect(page.locator("#peek-card-title")).toHaveCount(0);
   });

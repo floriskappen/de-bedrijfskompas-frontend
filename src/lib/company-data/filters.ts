@@ -1,34 +1,34 @@
 import type { AxisId, Company, DomainGroupId } from "./types";
 import { AXIS_IDS, DOMAIN_GROUP_IDS } from "./types";
 import { getDomainGroupsForCapabilityTags } from "./isco";
+import { FOCUS_LEVEL_ORDER, focusLevelOrdinal, getFocusLevel, type FocusLevel } from "./focus-level";
 
-export type AxisMinimums = Record<AxisId, number>;
+// Per-axis filter minimum is a focus level; `none` means "no preference".
+export type AxisMinimums = Record<AxisId, FocusLevel>;
 
 export interface CompanyFilters {
   axisMinimums: AxisMinimums;
   selectedDomains: DomainGroupId[];
+  favoritesOnly: boolean;
 }
 
-export type HistogramBucketId = "unknown" | "0" | "10" | "20" | "30" | "40" | "50" | "60" | "70" | "80" | "90";
-
 export interface HistogramBucket {
-  id: HistogramBucketId;
-  label: string;
-  minimum: number | null;
+  id: FocusLevel;
   count: number;
 }
 
 export const DEFAULT_AXIS_MINIMUMS: AxisMinimums = {
-  substance: 0,
-  ecology: 0,
-  power: 0,
-  embeddedness: 0,
-  posture: 0,
+  substance: "none",
+  ecology: "none",
+  power: "none",
+  embeddedness: "none",
+  posture: "none",
 };
 
 export const EMPTY_FILTERS: CompanyFilters = {
   axisMinimums: DEFAULT_AXIS_MINIMUMS,
   selectedDomains: [],
+  favoritesOnly: false,
 };
 
 export function getCompanyDomainGroups(company: Pick<Company, "capability_tags">): DomainGroupId[] {
@@ -50,12 +50,12 @@ export function getCompositeScore(company: Pick<Company, "scores">): number | nu
 export function matchesAxisMinimum(
   company: Pick<Company, "scores">,
   axis: AxisId,
-  minimum: number
+  minimum: FocusLevel
 ): boolean {
-  if (minimum <= 0) return true;
+  if (minimum === "none") return true;
 
-  const score = company.scores[axis]?.score;
-  return typeof score === "number" && score >= minimum;
+  const level = getFocusLevel(company.scores[axis]?.score);
+  return focusLevelOrdinal(level) >= focusLevelOrdinal(minimum);
 }
 
 export function matchesSelectedDomains(
@@ -66,71 +66,88 @@ export function matchesSelectedDomains(
   return selectedDomains.every((domain) => domains.has(domain));
 }
 
-export function matchesCompanyFilters(company: Company, filters: CompanyFilters): boolean {
-  const matchesAxes = AXIS_IDS.every((axis) =>
-    matchesAxisMinimum(company, axis, filters.axisMinimums[axis] ?? 0)
-  );
-
-  return matchesAxes && matchesSelectedDomains(company, filters.selectedDomains);
+function toFavoriteSet(favoriteIds: Iterable<string> = []): Set<string> {
+  return favoriteIds instanceof Set ? favoriteIds : new Set(favoriteIds);
 }
 
-export function filterCompanies(companies: Company[], filters: CompanyFilters): Company[] {
-  return companies.filter((company) => matchesCompanyFilters(company, filters));
+export function matchesCompanyFilters(
+  company: Company,
+  filters: CompanyFilters,
+  favoriteIds: Iterable<string> = []
+): boolean {
+  const matchesAxes = AXIS_IDS.every((axis) =>
+    matchesAxisMinimum(company, axis, filters.axisMinimums[axis] ?? "none")
+  );
+  const matchesFavorites = !filters.favoritesOnly || toFavoriteSet(favoriteIds).has(company.company_id);
+
+  return matchesAxes && matchesSelectedDomains(company, filters.selectedDomains) && matchesFavorites;
+}
+
+export function filterCompanies(
+  companies: Company[],
+  filters: CompanyFilters,
+  favoriteIds: Iterable<string> = []
+): Company[] {
+  const favoriteSet = toFavoriteSet(favoriteIds);
+  return companies.filter((company) => matchesCompanyFilters(company, filters, favoriteSet));
 }
 
 export function getHistogramBuckets(companies: Company[], axis: AxisId): HistogramBucket[] {
-  const buckets: HistogramBucket[] = [
-    { id: "unknown", label: "?", minimum: null, count: 0 },
-    ...Array.from({ length: 10 }, (_, index) => {
-      const start = index * 10;
-      const end = index === 9 ? 100 : start + 9;
-      return { id: String(start) as HistogramBucketId, label: `${start}-${end}`, minimum: start, count: 0 };
-    }),
-  ];
+  const counts: Record<FocusLevel, number> = { none: 0, low: 0, medium: 0, high: 0 };
 
   for (const company of companies) {
-    const score = company.scores[axis]?.score;
-    if (typeof score !== "number") {
-      buckets[0].count += 1;
-      continue;
-    }
-
-    const index = score >= 90 ? 10 : Math.floor(score / 10) + 1;
-    buckets[index].count += 1;
+    counts[getFocusLevel(company.scores[axis]?.score)] += 1;
   }
 
-  return buckets;
+  return FOCUS_LEVEL_ORDER.map((id) => ({ id, count: counts[id] }));
 }
 
 export function getCompaniesForAxisFacet(
   companies: Company[],
   filters: CompanyFilters,
-  axis: AxisId
+  axis: AxisId,
+  favoriteIds: Iterable<string> = []
 ): Company[] {
   return filterCompanies(companies, {
     ...filters,
     axisMinimums: {
       ...filters.axisMinimums,
-      [axis]: 0,
+      [axis]: "none",
     },
-  });
+  }, favoriteIds);
 }
 
 export function getCompaniesForDomainFacet(
   companies: Company[],
   filters: CompanyFilters,
-  domain: DomainGroupId
+  domain: DomainGroupId,
+  favoriteIds: Iterable<string> = []
 ): Company[] {
   return filterCompanies(companies, {
     ...filters,
     selectedDomains: filters.selectedDomains.filter((selectedDomain) => selectedDomain !== domain),
-  });
+  }, favoriteIds);
 }
 
-export function getDomainGroupCounts(companies: Company[], filters: CompanyFilters): Record<DomainGroupId, number> {
+export function getFavoriteCount(
+  companies: Company[],
+  filters: CompanyFilters,
+  favoriteIds: Iterable<string> = []
+): number {
+  const favoriteSet = toFavoriteSet(favoriteIds);
+  return filterCompanies(companies, { ...filters, favoritesOnly: false }, favoriteSet).filter((company) =>
+    favoriteSet.has(company.company_id)
+  ).length;
+}
+
+export function getDomainGroupCounts(
+  companies: Company[],
+  filters: CompanyFilters,
+  favoriteIds: Iterable<string> = []
+): Record<DomainGroupId, number> {
   return DOMAIN_GROUP_IDS.reduce(
     (counts, domain) => {
-      counts[domain] = getCompaniesForDomainFacet(companies, filters, domain).filter((company) =>
+      counts[domain] = getCompaniesForDomainFacet(companies, filters, domain, favoriteIds).filter((company) =>
         getCompanyDomainGroups(company).includes(domain)
       ).length;
       return counts;
@@ -141,7 +158,8 @@ export function getDomainGroupCounts(companies: Company[], filters: CompanyFilte
 
 export function hasActiveFilters(filters: CompanyFilters): boolean {
   return (
+    filters.favoritesOnly ||
     filters.selectedDomains.length > 0 ||
-    AXIS_IDS.some((axis) => (filters.axisMinimums[axis] ?? 0) > 0)
+    AXIS_IDS.some((axis) => (filters.axisMinimums[axis] ?? "none") !== "none")
   );
 }

@@ -11,13 +11,24 @@ import {
   getCompaniesForAxisFacet,
   getCompositeScore,
   getDomainGroupCounts,
+  getFavoriteCount,
   getHistogramBuckets,
   hasActiveFilters,
   type CompanyFilters,
 } from "../lib/company-data/filters";
+import { FOCUS_LEVEL_ORDER, focusLevelOrdinal, type FocusLevel } from "../lib/company-data/focus-level";
+import { getAxisInfoHref } from "../lib/company-data/axis-detail";
 import { t } from "../lib/i18n";
-import { getAxisLabel, getDomainGroupLabel } from "../lib/i18n/labels";
+import {
+  getAxisLabel,
+  getDomainGroupLabel,
+  getFocusLevelLabel,
+  getFocusMinimumLabel,
+} from "../lib/i18n/labels";
 import { DOMAIN_ICON_PATHS } from "../lib/company-data/domain-icons";
+import { readFavoriteIds, subscribeFavorites } from "../lib/favorites";
+import AxisGlyph from "./AxisGlyph";
+import FocusMeter from "./FocusMeter";
 
 interface MapViewProps {
   companies: Company[];
@@ -47,6 +58,21 @@ function DomainIcon({ domain }: { domain: DomainGroupId }) {
       />
     </svg>
   );
+}
+
+// Short tick captions under the level bars. `none` is the no-signal / "any"
+// column; the three levels read as weinig/gemiddeld/veel.
+const LEVEL_TICK: Record<"nl" | "en", Record<FocusLevel, string>> = {
+  nl: { none: "?", low: "weinig", medium: "gemiddeld", high: "veel" },
+  en: { none: "?", low: "little", medium: "moderate", high: "much" },
+};
+
+// star path reused for the saved-company mark on the map pins
+const FAVORITE_STAR_PATH =
+  "M9 2l2.09 4.26L16 7l-3.5 3.4.83 4.6L9 13l-4.33 2L5.5 10.4 2 7l4.91-.74L9 2z";
+
+function favoriteMarkHTML(): string {
+  return `<span class="pin-favorite-mark" aria-hidden="true"><svg width="8" height="8" viewBox="0 0 18 18" fill="currentColor"><path d="${FAVORITE_STAR_PATH}"/></svg></span>`;
 }
 
 // Companies that share an address (e.g. an incubator) collide on the same
@@ -97,7 +123,9 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const [filters, setFilters] = useState<CompanyFilters>({
     axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
     selectedDomains: [],
+    favoritesOnly: false,
   });
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   // `isFilterOpen` is intent; `filterVisible` keeps the sheet mounted long
   // enough to play the stepped exit animation, mirroring the peek card.
@@ -121,7 +149,10 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const [zoom, setZoom] = useState<number>(initialZoom);
   const [supercluster, setSupercluster] = useState<Supercluster | null>(null);
 
-  const filteredCompanies = useMemo(() => filterCompanies(companies, filters), [companies, filters]);
+  const filteredCompanies = useMemo(
+    () => filterCompanies(companies, filters, favoriteIds),
+    [companies, filters, favoriteIds]
+  );
   const filteredCompanyIds = useMemo(
     () => new Set(filteredCompanies.map((company) => company.company_id)),
     [filteredCompanies]
@@ -130,13 +161,22 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     () => new Map(companies.map((company) => [company.company_id, company])),
     [companies]
   );
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const pinOffsets = useMemo(() => computePinOffsets(filteredCompanies), [filteredCompanies]);
-  const domainCounts = useMemo(() => getDomainGroupCounts(companies, filters), [companies, filters]);
+  const domainCounts = useMemo(
+    () => getDomainGroupCounts(companies, filters, favoriteIds),
+    [companies, filters, favoriteIds]
+  );
+  const favoriteCount = useMemo(
+    () => getFavoriteCount(companies, filters, favoriteIds),
+    [companies, filters, favoriteIds]
+  );
   const filtersActive = hasActiveFilters(filters);
   const activeFilterCount = useMemo(
     () =>
+      (filters.favoritesOnly ? 1 : 0) +
       filters.selectedDomains.length +
-      AXIS_IDS.filter((axis) => (filters.axisMinimums[axis] ?? 0) > 0).length,
+      AXIS_IDS.filter((axis) => (filters.axisMinimums[axis] ?? "none") !== "none").length,
     [filters]
   );
   const histogramMaxima = useMemo(
@@ -200,9 +240,32 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
             ...(nextFilters.axisMinimums ?? {}),
           },
           selectedDomains: nextFilters.selectedDomains ?? current.selectedDomains,
+          favoritesOnly: nextFilters.favoritesOnly ?? current.favoritesOnly,
         }));
       };
     }
+  }, []);
+
+  useEffect(() => {
+    setFavoriteIds(readFavoriteIds());
+    return subscribeFavorites(setFavoriteIds);
+  }, []);
+
+  // Returning from an axis info page opened via the filter sheet's "?" link:
+  // the back link carries ?filters=open, so reopen the sheet once on arrival
+  // and strip the param so a reload does not reopen it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("filters") !== "open") return;
+    setIsFilterOpen(true);
+    params.delete("filters");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`
+    );
   }, []);
 
   const handleGeolocate = () => {
@@ -390,7 +453,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     }
   }, [filteredCompanyIds, selectedId]);
 
-  const updateAxisMinimum = (axis: AxisId, minimum: number) => {
+  const updateAxisMinimum = (axis: AxisId, minimum: FocusLevel) => {
     setFilters((current) => ({
       ...current,
       axisMinimums: {
@@ -398,6 +461,33 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         [axis]: minimum,
       },
     }));
+  };
+
+  // The level strip is a 4-column control (none/low/medium/high). Each column
+  // is exactly as wide as its bar, so dragging across a bar boundary flips the
+  // minimum right at that edge — no dead zone where a passed bar stays active.
+  const levelDragAxisRef = useRef<AxisId | null>(null);
+
+  const setMinimumFromPointer = (axis: AxisId, strip: HTMLElement, clientX: number) => {
+    const rect = strip.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    const index = Math.max(0, Math.min(FOCUS_LEVEL_ORDER.length - 1, Math.floor(ratio * FOCUS_LEVEL_ORDER.length)));
+    updateAxisMinimum(axis, FOCUS_LEVEL_ORDER[index]);
+  };
+
+  const onLevelPointerDown = (axis: AxisId) => (event: React.PointerEvent<HTMLDivElement>) => {
+    levelDragAxisRef.current = axis;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setMinimumFromPointer(axis, event.currentTarget, event.clientX);
+  };
+
+  const onLevelPointerMove = (axis: AxisId) => (event: React.PointerEvent<HTMLDivElement>) => {
+    if (levelDragAxisRef.current !== axis) return;
+    setMinimumFromPointer(axis, event.currentTarget, event.clientX);
+  };
+
+  const onLevelPointerUp = () => {
+    levelDragAxisRef.current = null;
   };
 
   const toggleDomain = (domain: DomainGroupId) => {
@@ -417,7 +507,15 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     setFilters({
       axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
       selectedDomains: [],
+      favoritesOnly: false,
     });
+  };
+
+  const toggleFavoritesOnly = () => {
+    setFilters((current) => ({
+      ...current,
+      favoritesOnly: !current.favoritesOnly,
+    }));
   };
 
   // Drag the panel header down to dismiss it, mirroring the peek card gesture.
@@ -567,6 +665,10 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
 
           el.appendChild(innerEl);
 
+          if (favoriteSet.has(companyId)) {
+            el.insertAdjacentHTML("beforeend", favoriteMarkHTML());
+          }
+
           el.addEventListener("click", (e) => {
             e.stopPropagation();
             const currentSelectedId = selectedIdRef.current;
@@ -598,6 +700,14 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
               el.classList.remove("z-50");
             }
           }
+          // Keep the saved-company mark in sync as favorites change
+          const isFav = favoriteSet.has(companyId);
+          const existingMark = el.querySelector(".pin-favorite-mark");
+          if (isFav && !existingMark) {
+            el.insertAdjacentHTML("beforeend", favoriteMarkHTML());
+          } else if (!isFav && existingMark) {
+            existingMark.remove();
+          }
         }
       }
     });
@@ -609,7 +719,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         delete markersRef.current[key];
       }
     });
-  }, [zoom, supercluster, companyById, pinOffsets, selectedId]);
+  }, [zoom, supercluster, companyById, pinOffsets, selectedId, favoriteSet]);
 
   // React to selectedId changes to pan map
   useEffect(() => {
@@ -649,6 +759,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     ? supercluster.getClusters([-180, -90, 180, 90], Math.round(zoom))
     : [];
   const selectedDomainSet = new Set(filters.selectedDomains);
+  const favoritesHref = locale === "en" ? "/en/favorites/" : "/favorieten/";
 
   return (
     <div className="relative w-full h-full">
@@ -720,6 +831,13 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                       <span aria-hidden="true" className="score-badge-dot" />
                       <span>{score === null ? "?" : score}</span>
                     </div>
+                    {favoriteSet.has(companyId) && (
+                      <span className="pin-favorite-mark" aria-hidden="true">
+                        <svg width="8" height="8" viewBox="0 0 18 18" fill="currentColor">
+                          <path d={FAVORITE_STAR_PATH} />
+                        </svg>
+                      </span>
+                    )}
                   </div>
                 );
               }
@@ -739,23 +857,40 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         </div>
       )}
 
-      <a
-        id="about-button"
-        href={locale === "en" ? "/en/about/" : "/over/"}
-        aria-label={t("about", locale)}
-        className="ontwerp-icon-button absolute top-4 left-4 z-20"
-      >
-        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <circle cx="9" cy="9" r="6.7" stroke="currentColor" strokeWidth="1.4" />
-          <path
-            d="M9 8.2v4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-          <circle cx="9" cy="5.7" r="0.5" fill="currentColor" stroke="currentColor" strokeWidth="0.7" />
-        </svg>
-      </a>
+      <div id="map-left-chrome" className="absolute top-4 left-4 z-20 flex gap-2">
+        <a
+          id="about-button"
+          href={locale === "en" ? "/en/about/" : "/over/"}
+          aria-label={t("about", locale)}
+          className="ontwerp-icon-button"
+        >
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <circle cx="9" cy="9" r="6.7" stroke="currentColor" strokeWidth="1.4" />
+            <path
+              d="M9 8.2v4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <circle cx="9" cy="5.7" r="0.5" fill="currentColor" stroke="currentColor" strokeWidth="0.7" />
+          </svg>
+        </a>
+        <a
+          id="favorites-button"
+          href={favoritesHref}
+          aria-label={t("favorites_page", locale)}
+          className="ontwerp-icon-button"
+        >
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M9 2l2.09 4.26L16 7l-3.5 3.4.83 4.6L9 13l-4.33 2L5.5 10.4 2 7l4.91-.74L9 2z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </a>
+      </div>
 
       <button
         id="filters-button"
@@ -835,68 +970,110 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
               </div>
             </div>
 
-            <div className="space-y-4 pt-4">
-              {AXIS_IDS.map((axis) => {
-                const facetCompanies = getCompaniesForAxisFacet(companies, filters, axis);
-                const buckets = getHistogramBuckets(facetCompanies, axis);
-                const maxCount = histogramMaxima[axis];
-                const value = filters.axisMinimums[axis] ?? 0;
+            <div className="pt-4">
+              {/* favorites sits at the top as a switch — flip it to keep only saved companies */}
+              <button
+                id="favorites-filter"
+                type="button"
+                aria-pressed={filters.favoritesOnly}
+                onClick={toggleFavoritesOnly}
+                data-favorites-filter
+                className="favorites-switch"
+              >
+                <svg width="15" height="15" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d={FAVORITE_STAR_PATH} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                </svg>
+                <span className="flex-1 font-sans text-[14px] leading-none">{t("favorites_only", locale)}</span>
+                <span className="font-mono text-[10px] text-ink-quiet">{favoriteCount}</span>
+                <span className="switch-track" aria-hidden="true">
+                  <span className="switch-knob" />
+                </span>
+              </button>
 
-                return (
-                  <section key={axis} data-axis-filter={axis} className="ontwerp-card p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="font-mono text-[9px] text-ink-soft">{getAxisLabel(axis, locale)}</h3>
-                      <span className="font-mono text-[9px] text-red-dark">{value === 0 ? "geen voorkeur" : `min ${value}`}</span>
-                    </div>
-                    <div className="mb-2 grid grid-cols-[1.4rem_1fr] items-end gap-2">
-                      <div className="flex h-12 flex-col items-center justify-end gap-1" aria-label={`${getAxisLabel(axis, locale)} onbekend`}>
-                        {buckets.filter((bucket) => bucket.id === "unknown").map((bucket) => (
-                          <div key={bucket.id} data-axis={axis} data-bucket={bucket.id} title={`${bucket.label}: ${bucket.count}`} className="flex h-full w-full flex-col items-center justify-end gap-1">
-                            <div className="w-full bg-ink-faint opacity-80" style={{ height: `${Math.max(4, (bucket.count / maxCount) * 34)}px` }} />
-                            <span className="font-mono text-[7px] text-ink-quiet">?</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex h-12 items-end gap-1" aria-label={`${getAxisLabel(axis, locale)} verdeling`}>
-                      {buckets.map((bucket) => (
-                        bucket.id === "unknown" ? null : (
-                        <div
-                          key={bucket.id}
-                          data-axis={axis}
-                          data-bucket={bucket.id}
-                          title={`${bucket.label}: ${bucket.count}`}
-                          className={`flex min-w-0 flex-1 flex-col items-center justify-end gap-1 ${
-                            bucket.minimum !== null && bucket.minimum >= value ? "opacity-100" : "opacity-35"
-                          }`}
+              <div className="mt-4">
+                {AXIS_IDS.map((axis) => {
+                  const facetCompanies = getCompaniesForAxisFacet(companies, filters, axis, favoriteIds);
+                  const buckets = getHistogramBuckets(facetCompanies, axis);
+                  const maxCount = histogramMaxima[axis];
+                  const minimum = filters.axisMinimums[axis] ?? "none";
+                  const minOrdinal = focusLevelOrdinal(minimum);
+                  const axisLabel = getAxisLabel(axis, locale);
+
+                  return (
+                    <section key={axis} data-axis-filter={axis} className="border-t border-border-quiet py-3 first:border-t-0">
+                      <div className="mb-2 flex items-center gap-2">
+                        <AxisGlyph axis={axis} size={16} />
+                        <h3 className="font-sans text-[15px] leading-none text-ink">{axisLabel}</h3>
+                        <a
+                          href={getAxisInfoHref(axis, locale, "filters")}
+                          data-axis-filter-info={axis}
+                          aria-label={`${t("axis_explainer", locale)} ${axisLabel}`}
+                          className="axis-info-dot"
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          <div
-                            className="w-full bg-ink opacity-80"
-                            style={{ height: `${Math.max(4, (bucket.count / maxCount) * 34)}px` }}
-                          />
-                          <span className="font-mono text-[7px] text-ink-quiet">{bucket.id}</span>
-                        </div>
-                        )
-                      ))}
+                          ?
+                        </a>
+                        {/* selected minimum reads as "at least this much focus" */}
+                        <span data-axis-minimum={axis} data-level={minimum} className="ml-auto flex items-center gap-1">
+                          {minimum === "none" ? (
+                            <span className="font-mono text-[10px] text-ink-quiet">{getFocusMinimumLabel(minimum, locale)}</span>
+                          ) : (
+                            <>
+                              <span aria-hidden="true" className="font-mono text-[11px] leading-none text-ink-soft">≥</span>
+                              <FocusMeter level={minimum} label={getFocusMinimumLabel(minimum, locale)} />
+                            </>
+                          )}
+                        </span>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-[1.4rem_1fr] gap-2">
-                      <div />
-                      <div>
-                        <input
-                          aria-label={`${getAxisLabel(axis, locale)} minimum`}
-                          type="range"
-                          min="0"
-                          max="90"
-                          step="10"
-                          value={value}
-                          onChange={(event) => updateAxisMinimum(axis, Number(event.currentTarget.value))}
-                          className="filter-range w-full"
-                        />
+
+                      {/* 4-column level strip: none/weinig/gemiddeld/veel. clicking or
+                          dragging a column sets the minimum to that level (and up). */}
+                      <div
+                        role="presentation"
+                        className="filter-levels"
+                        onPointerDown={onLevelPointerDown(axis)}
+                        onPointerMove={onLevelPointerMove(axis)}
+                        onPointerUp={onLevelPointerUp}
+                        onPointerCancel={onLevelPointerUp}
+                      >
+                        {buckets.map((bucket) => {
+                          const ordinal = focusLevelOrdinal(bucket.id);
+                          const dim = minimum !== "none" && ordinal < minOrdinal;
+                          const included = minimum !== "none" && ordinal >= minOrdinal;
+                          const bucketLabel = bucket.id === "none" ? t("evidence_none", locale) : getFocusLevelLabel(bucket.id, locale);
+                          return (
+                            <div
+                              key={bucket.id}
+                              data-axis={axis}
+                              data-bucket={bucket.id}
+                              title={`${bucketLabel}: ${bucket.count}`}
+                              className={`filter-level-col${dim ? " is-dim" : ""}${included ? " is-included" : ""}`}
+                            >
+                              <div className="filter-level-bar-wrap">
+                                <div className="filter-level-bar" style={{ height: `${Math.max(3, (bucket.count / maxCount) * 34)}px` }} />
+                              </div>
+                              <span className="filter-level-tick">{LEVEL_TICK[locale][bucket.id]}</span>
+                              <span className="filter-level-rule" />
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  </section>
-                );
-              })}
+
+                      {/* keyboard + programmatic control mirroring the strip */}
+                      <input
+                        aria-label={`${axisLabel} minimum`}
+                        type="range"
+                        min="0"
+                        max="3"
+                        step="1"
+                        value={minOrdinal}
+                        onChange={(event) => updateAxisMinimum(axis, FOCUS_LEVEL_ORDER[Number(event.currentTarget.value)])}
+                        className="sr-only"
+                      />
+                    </section>
+                  );
+                })}
+              </div>
             </div>
 
             <section className="mt-5">

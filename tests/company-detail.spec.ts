@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { FAVORITES_STORAGE_KEY } from "../src/lib/favorites";
 
 const NL_AXES = ["INHOUD", "ECOLOGIE", "MACHT", "VERANKERING", "HOUDING"];
 
@@ -41,15 +42,42 @@ test.describe("company-detail E2E tests", () => {
     await expect(infoLink.locator("xpath=preceding-sibling::p")).toBeVisible();
   });
 
-  // null-score axis renders no-signal state
-  test("null-score axis renders no-signal state", async ({ page }) => {
+  // collapsed axis row leads with the focus-level meter
+  test("collapsed axis row shows focus level", async ({ page }) => {
+    await page.goto("/land-life-company/");
+
+    // ecology has a numeric score → its row shows a focus-level meter
+    const slot = page.locator('[data-axis-level="ecology"]');
+    await expect(slot).toHaveAttribute("data-level", /^(low|medium|high)$/);
+    await expect(slot.locator("[data-focus-meter]")).toBeVisible();
+    await expect(slot).toHaveAttribute("aria-label", /focus/);
+  });
+
+  // null-score axis keeps the no-signal state on its row
+  test("no-signal axis shows geen signaal on the row", async ({ page }) => {
     await page.goto("/land-life-company/");
 
     // power has a null score → "?" glyph in the pentagon
     await expect(page.locator('svg text:text-is("?")')).toBeVisible();
-    // and a de-emphasized "geen signaal" evidence label on its row
-    const power = page.locator('button[data-axis="power"]');
-    await expect(power).toContainText("geen signaal");
+    // and the no-signal meter (not a focus level) in the row's level slot
+    const slot = page.locator('[data-axis-level="power"]');
+    await expect(slot).toHaveAttribute("data-level", "none");
+    await expect(slot).toHaveAttribute("aria-label", "geen signaal");
+  });
+
+  // the evidence level lives inside the expanded panel, not on the collapsed row
+  test("expanded row shows evidence inside the panel", async ({ page }) => {
+    await page.goto("/land-life-company/");
+    await waitForHydration(page);
+
+    // the evidence label lives in the axis panel, not inside the row button
+    await expect(page.locator('button[data-axis="ecology"] [data-axis-evidence]')).toHaveCount(0);
+    await expect(page.locator('.axis-panel [data-axis-evidence="ecology"]')).toHaveCount(1);
+
+    await page.locator('button[data-axis="ecology"]').click();
+    const evidence = page.locator('[data-axis-evidence="ecology"]');
+    await expect(evidence).toBeVisible();
+    await expect(evidence).not.toHaveText("");
   });
 
   // detail footer shows real last-checked time
@@ -66,6 +94,36 @@ test.describe("company-detail E2E tests", () => {
     // a relative-time phrase follows the prefix, not the old fixed copy
     expect(text).not.toBe("gecheckt 12 dagen geleden");
     expect(text.length).toBeGreaterThan("gecheckt".length);
+  });
+
+  test("favorite control reflects state and toggles without navigation", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => {
+        window.localStorage.setItem(key, JSON.stringify({ companyIds: ["land-life-company"] }));
+      },
+      { key: FAVORITES_STORAGE_KEY }
+    );
+    await page.goto("/land-life-company/");
+    await waitForHydration(page);
+
+    const remove = page.locator('button[aria-label="verwijder favoriet"]');
+    await expect(remove).toHaveAttribute("aria-pressed", "true");
+    await remove.click();
+    await expect(page).toHaveURL(/\/land-life-company\/$/);
+    await expect(page.locator('button[aria-label="voeg bladwijzer toe"]')).toHaveAttribute("aria-pressed", "false");
+    await expect
+      .poll(async () =>
+        page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) || "{}").companyIds, FAVORITES_STORAGE_KEY)
+      )
+      .toEqual([]);
+
+    await page.locator('button[aria-label="voeg bladwijzer toe"]').click();
+    await expect(page.locator('button[aria-label="verwijder favoriet"]')).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () =>
+        page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) || "{}").companyIds, FAVORITES_STORAGE_KEY)
+      )
+      .toEqual(["land-life-company"]);
   });
 
   // website link and en locale

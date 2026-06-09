@@ -1,4 +1,5 @@
 import type { AxisId, DomainGroupId } from "../company-data/types";
+import type { FocusLevel } from "../company-data/focus-level";
 
 type Locale = "nl" | "en";
 
@@ -61,8 +62,52 @@ const DOMAIN_GROUP_LABELS: Record<Locale, Record<DomainGroupId, string>> = {
   },
 };
 
+// Focus levels read as how much focus a company puts on an axis, never as
+// good/bad. `none` reuses the site's no-signal wording. The same label is used
+// in the filter slider and on the detail axis rows.
+const FOCUS_LEVEL_LABELS: Record<Locale, Record<FocusLevel, string>> = {
+  nl: {
+    none: "geen signaal",
+    low: "weinig focus",
+    medium: "gemiddelde focus",
+    high: "veel focus",
+  },
+  en: {
+    none: "no signal",
+    low: "little focus",
+    medium: "moderate focus",
+    high: "much focus",
+  },
+};
+
+// Filter minimums read as "at least this much focus" — a minimum of `low`
+// includes every company from weinig focus upward, not only the weinig band.
+// `none` means no preference; `high` is already the ceiling so it stands alone.
+const FOCUS_MINIMUM_LABELS: Record<Locale, Record<FocusLevel, string>> = {
+  nl: {
+    none: "geen voorkeur",
+    low: "minstens weinig focus",
+    medium: "minstens gemiddelde focus",
+    high: "veel focus",
+  },
+  en: {
+    none: "any",
+    low: "at least little focus",
+    medium: "at least moderate focus",
+    high: "much focus",
+  },
+};
+
 export function getAxisLabel(axis: AxisId, locale: string): string {
   return AXIS_LABELS[normalizeLocale(locale)][axis];
+}
+
+export function getFocusLevelLabel(level: FocusLevel, locale: string): string {
+  return FOCUS_LEVEL_LABELS[normalizeLocale(locale)][level];
+}
+
+export function getFocusMinimumLabel(level: FocusLevel, locale: string): string {
+  return FOCUS_MINIMUM_LABELS[normalizeLocale(locale)][level];
 }
 
 export function getDomainGroupLabel(domain: DomainGroupId, locale: string): string {
