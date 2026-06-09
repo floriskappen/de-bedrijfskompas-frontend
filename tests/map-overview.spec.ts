@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { BYOK_STORAGE_KEY } from "../src/lib/byok";
 import { DOMAIN_ICON_PATHS } from "../src/lib/company-data/domain-icons";
 import { FAVORITES_STORAGE_KEY } from "../src/lib/favorites";
 
@@ -411,6 +412,38 @@ test.describe("map-overview E2E tests", () => {
 
     await expect(page.locator("#filters-panel")).toBeVisible();
     await expect(page).not.toHaveURL(/.*filters/);
+  });
+
+  test("map ikigai button opens byok setup", async ({ page }) => {
+    await page.goto("/");
+
+    const button = page.locator("#ikigai-button");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveText("");
+    await expect(button).toHaveAttribute("aria-label", "vind passend werk");
+
+    await button.click();
+
+    await expect(page.locator("#byok-setup")).toBeVisible();
+    await expect(page.locator("#byok-setup")).toContainText("eigen llm-sleutel");
+    await expect(page.locator("#byok-api-key-input")).toBeVisible();
+  });
+
+  test("byok setup configures openrouter with cost placeholder", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#ikigai-button").click();
+
+    await expect(page.locator("#byok-provider")).toHaveValue("openrouter");
+    await expect(page.locator("#byok-model")).toHaveValue("deepseek v4 flash");
+    await expect(page.locator("#byok-cost-placeholder")).toContainText("kostenindicatie volgt later");
+
+    await page.locator("#byok-api-key-input").fill("sk-playwright");
+    await page.locator("#byok-allowance-input").fill("1.50");
+    await page.locator("#byok-confirm").click();
+
+    await expect(page.locator("#byok-ready")).toHaveText("llm-toegang klaar");
+    const stored = await page.evaluate((key) => window.localStorage.getItem(key), BYOK_STORAGE_KEY);
+    expect(stored).not.toContain("sk-playwright");
   });
 
   test("reset clears active filters", async ({ page }) => {

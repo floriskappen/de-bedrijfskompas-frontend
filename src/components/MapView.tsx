@@ -27,7 +27,9 @@ import {
 } from "../lib/i18n/labels";
 import { DOMAIN_ICON_PATHS } from "../lib/company-data/domain-icons";
 import { readFavoriteIds, subscribeFavorites } from "../lib/favorites";
+import { hasConfirmedByokConfig } from "../lib/byok";
 import AxisGlyph from "./AxisGlyph";
+import ByokSetupDialog from "./ByokSetupDialog";
 import FocusMeter from "./FocusMeter";
 
 interface MapViewProps {
@@ -127,6 +129,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   });
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isByokOpen, setIsByokOpen] = useState(false);
   // `isFilterOpen` is intent; `filterVisible` keeps the sheet mounted long
   // enough to play the stepped exit animation, mirroring the peek card.
   const [filterVisible, setFilterVisible] = useState(false);
@@ -518,6 +521,15 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     }));
   };
 
+  const handleIkigaiEntry = () => {
+    // Matching itself ships in a later change; this entry point only gates LLM access.
+    if (!hasConfirmedByokConfig()) {
+      setIsByokOpen(true);
+      return;
+    }
+    setIsByokOpen(true);
+  };
+
   // Drag the panel header down to dismiss it, mirroring the peek card gesture.
   const onPanelHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!panelRef.current) return;
@@ -890,6 +902,31 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
             />
           </svg>
         </a>
+        <button
+          id="ikigai-button"
+          type="button"
+          onClick={handleIkigaiEntry}
+          aria-label={t("ikigai_entry", locale)}
+          aria-expanded={isByokOpen}
+          aria-controls="byok-setup"
+          className="ontwerp-icon-button"
+        >
+          <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M9 2.2v3.3M9 12.5v3.3M2.2 9h3.3M12.5 9h3.3"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+            <path
+              d="M5.5 5.5l1.9 1.9M10.6 10.6l1.9 1.9M12.5 5.5l-1.9 1.9M7.4 10.6l-1.9 1.9"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+            <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.4" />
+          </svg>
+        </button>
       </div>
 
       <button
@@ -1144,6 +1181,12 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           }}
         />
       )}
+
+      <ByokSetupDialog
+        open={isByokOpen}
+        locale={locale}
+        onClose={() => setIsByokOpen(false)}
+      />
     </div>
   );
 }
