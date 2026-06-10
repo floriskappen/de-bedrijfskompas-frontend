@@ -1,5 +1,7 @@
 # Company Data Fetch
 
+## Purpose
+
 Build-time acquisition of the `companies.json` artifact from the pipeline's GitHub releases. Covers release discovery, asset download, authentication, and cache behavior.
 
 ## Requirements
