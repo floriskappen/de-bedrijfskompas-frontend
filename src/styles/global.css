@@ -488,10 +488,573 @@ em {
   border-style: dashed;
 }
 
+.ikigai-sheet {
+  animation: filter-sheet-in var(--motion-duration-bloom) steps(4, end) both;
+}
+
+.ikigai-panel {
+  border: 1px solid var(--color-border-quiet);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-card-surface);
+  background-size: 600px 600px, auto;
+  padding: var(--space-inset);
+}
+
+.ikigai-panel h3,
+.ikigai-result-card h3 {
+  color: var(--color-text-default);
+  font: var(--typography-heading-sm);
+}
+
+.ikigai-muted {
+  color: var(--color-text-quiet);
+  font: var(--typography-body-sm);
+}
+
+.ikigai-field {
+  display: grid;
+  gap: var(--space-xs);
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+}
+
+.ikigai-field > span,
+.ikigai-axis-control > span {
+  font: var(--badge-typography);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ikigai-field textarea {
+  min-height: 72px;
+  border: 1px solid var(--field-border-default);
+  border-radius: var(--field-radius);
+  background: var(--color-surface-page);
+  color: var(--field-text);
+  font: var(--field-typography);
+  padding: var(--field-padding-block) var(--field-padding-inline);
+  resize: vertical;
+  outline: 0;
+}
+
+.ikigai-field textarea:focus {
+  box-shadow: inset 0 0 0 2px var(--field-border-focus);
+}
+
+.ikigai-axis-control {
+  display: grid;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-quiet);
+  padding-top: var(--space-sm);
+}
+
+.ikigai-axis-control:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ikigai-axis-control > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--color-border-default);
+}
+
+.ikigai-axis-control button {
+  border: 0;
+  border-right: 1px solid var(--color-border-quiet);
+  background: var(--color-surface-page);
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+  padding: var(--space-sm);
+}
+
+.ikigai-axis-control button:last-child {
+  border-right: 0;
+}
+
+.ikigai-axis-control button[aria-pressed="true"] {
+  background: var(--color-accent-base);
+  color: var(--color-text-on-ink);
+}
+
+.ikigai-status,
+.ikigai-reason {
+  border: 1px solid var(--color-border-accent);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-page);
+  background-size: 600px 600px, auto;
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+  padding: var(--space-inset);
+}
+
+.ikigai-status.is-error {
+  border-style: dashed;
+  color: var(--color-text-default);
+}
+
+.ikigai-result-card {
+  border: 1px solid var(--color-border-default);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-warm);
+  background-size: 600px 600px, auto;
+  color: var(--color-text-default);
+  padding: var(--space-inset);
+}
+
+.ikigai-axis-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.ikigai-candidate-card {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-quiet);
+  background: var(--color-surface-page);
+  color: var(--color-text-default);
+  padding: var(--space-sm);
+  text-decoration: none;
+}
+
+.ikigai-candidate-card small {
+  color: var(--color-text-quiet);
+  font: var(--typography-body-sm);
+}
+
 .drag-handle-bar {
   height: 4px;
   width: 40px;
   background: var(--color-border-quiet);
+}
+
+/* ───────────────────────── ikigai matching flow ─────────────────────────
+   Two surfaces: a run-selection bottom sheet (the menu, with a drag handle)
+   and a full-screen stepped wizard for a single run. Both reuse the paper
+   grain, ink-press buttons, boxed mono marks, and the focus-level vocabulary.
+   The loading state is the ontwerp "germinating" seed head. No raw tokens. */
+
+/* — run-selection menu (bottom sheet) — */
+.ikigai-menu-sheet {
+  padding-inline: var(--space-inset);
+  animation: filter-sheet-in var(--motion-duration-bloom) steps(4, end) both;
+}
+
+.ikigai-drag-zone {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--space-sm);
+  touch-action: none;
+  cursor: grab;
+}
+
+.ikigai-menu-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.ikigai-menu-title {
+  color: var(--color-text-default);
+  font: var(--typography-heading-md);
+}
+
+.ikigai-menu-intro {
+  margin-top: var(--space-sm);
+  max-width: 34rem;
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+}
+
+.ikigai-resume-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  border: 1px solid var(--color-border-accent);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-warm);
+  background-size: 600px 600px, auto;
+  padding: var(--space-inset);
+}
+
+.ikigai-resume-title {
+  color: var(--color-text-default);
+  font: var(--typography-body);
+  font-weight: 600;
+}
+
+.ikigai-resume-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-inline-gap);
+}
+
+.ikigai-new-button {
+  width: 100%;
+  margin-top: var(--space-md);
+}
+
+.ikigai-history {
+  margin-top: var(--space-xl);
+}
+
+.ikigai-section-label {
+  color: var(--color-text-soft);
+  font: var(--badge-typography);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ikigai-history-list {
+  display: grid;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.ikigai-history-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  border: 1px solid var(--color-border-quiet);
+  background: var(--filter-card-surface);
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ikigai-history-item:hover {
+  background: var(--color-surface-claim-hover);
+  border-color: var(--color-border-default);
+}
+
+.ikigai-history-date {
+  color: var(--color-text-default);
+  font: var(--typography-mark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ikigai-history-meta {
+  overflow: hidden;
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ikigai-history-count {
+  color: var(--color-text-quiet);
+  font: var(--typography-mark);
+}
+
+/* — full-screen wizard — */
+.ikigai-fullscreen {
+  overflow: hidden;
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-surface);
+  background-size: 600px 600px, auto;
+  color: var(--color-text-default);
+  animation: filter-backdrop-in 160ms steps(4, end) both;
+}
+
+.ikigai-wizard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--color-border-quiet);
+  padding: var(--space-md) var(--space-inset);
+}
+
+.ikigai-wizard-top-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.ikigai-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ikigai-progress-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-default);
+  background: transparent;
+}
+
+.ikigai-progress-dot.is-done {
+  background: var(--color-text-soft);
+  border-color: var(--color-text-soft);
+}
+
+.ikigai-progress-dot.is-active {
+  background: var(--color-accent-base);
+  border-color: var(--color-accent-base);
+}
+
+.ikigai-progress-label {
+  margin-left: var(--space-xs);
+  color: var(--color-text-quiet);
+  font: var(--typography-mark);
+}
+
+.ikigai-phase-label {
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+}
+
+.ikigai-wizard-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  padding: var(--space-xl) var(--space-inset);
+}
+
+.ikigai-wizard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-top: 1px solid var(--color-border-quiet);
+  padding: var(--space-md) var(--space-inset);
+  background: var(--filter-surface);
+}
+
+.ikigai-wizard-foot .ontwerp-button {
+  min-width: 7.5rem;
+}
+
+/* — question step — */
+.ikigai-question {
+  width: 100%;
+  max-width: 34rem;
+  margin-block: auto;
+}
+
+.ikigai-question-eyebrow {
+  color: var(--color-accent-base);
+  font: var(--typography-mark);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.ikigai-question-prompt {
+  margin-top: var(--space-sm);
+  color: var(--color-text-default);
+  font: var(--typography-heading-lg);
+  line-height: 1.1;
+}
+
+.ikigai-question-helper {
+  margin-top: var(--space-sm);
+  color: var(--color-text-soft);
+  font: var(--typography-body);
+}
+
+.ikigai-answer {
+  width: 100%;
+  min-height: 120px;
+  margin-top: var(--space-lg);
+  border: 1px solid var(--field-border-default);
+  border-radius: var(--field-radius);
+  background: var(--color-surface-page);
+  color: var(--field-text);
+  font: var(--typography-body-lg);
+  padding: var(--field-padding-block) var(--field-padding-inline);
+  resize: vertical;
+  outline: 0;
+}
+
+.ikigai-answer:focus {
+  box-shadow: inset 0 0 0 2px var(--field-border-focus);
+}
+
+.ikigai-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.ikigai-example {
+  border: 1px solid var(--color-border-quiet);
+  background: var(--filter-card-surface);
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+}
+
+.ikigai-example::before {
+  content: "+";
+  margin-right: 0.35em;
+  color: var(--color-text-quiet);
+}
+
+.ikigai-example:hover {
+  background: var(--color-surface-claim-hover);
+  border-color: var(--color-border-default);
+  color: var(--color-text-default);
+}
+
+/* — germinating loading — */
+.ikigai-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  margin-block: auto;
+  text-align: center;
+}
+
+.ikigai-seedhead {
+  width: 92px;
+  height: 92px;
+  fill: var(--color-text-soft);
+}
+
+.ikigai-gseed {
+  opacity: 0;
+  animation: ikigai-germinate 4s steps(12) infinite;
+  animation-delay: calc(var(--gi) * 0.05s);
+}
+
+@keyframes ikigai-germinate {
+  0% { opacity: 0; }
+  8% { opacity: 0.9; }
+  82% { opacity: 0.9; }
+  92%, 100% { opacity: 0; }
+}
+
+.ikigai-loading-caption {
+  max-width: 28rem;
+  color: var(--color-text-default);
+  font: var(--typography-body-lg);
+}
+
+.ikigai-loading-sub {
+  color: var(--color-text-quiet);
+  font: var(--typography-body-sm);
+}
+
+/* — tune / results / refine shared — */
+.ikigai-stage-intro {
+  color: var(--color-text-soft);
+  font: var(--typography-body);
+}
+
+.ikigai-tune,
+.ikigai-results {
+  display: grid;
+  gap: var(--space-xl);
+  width: 100%;
+  max-width: 38rem;
+}
+
+.ikigai-tune-block {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.ikigai-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.ikigai-pool {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-quiet);
+  background: var(--filter-card-surface);
+  padding: var(--space-inset);
+}
+
+.ikigai-pool-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ikigai-pool-hint {
+  color: var(--color-text-quiet);
+  font: var(--typography-body-sm);
+}
+
+.ikigai-axes {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.ikigai-pool-preview {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.ikigai-results-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.ikigai-broader {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.ikigai-refine {
+  width: 100%;
+  max-width: 34rem;
+  margin-block: auto;
+}
+
+/* — error recovery card — */
+.ikigai-error-card {
+  display: grid;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 30rem;
+  margin-block: auto;
+  border: 1px dashed var(--color-border-accent);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-page);
+  background-size: 600px 600px, auto;
+  color: var(--color-text-default);
+  padding: var(--space-inset);
+  font: var(--typography-body);
+}
+
+.ikigai-error-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-inline-gap);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ikigai-gseed {
+    opacity: 0.85;
+    animation: none;
+  }
+  .ikigai-fullscreen,
+  .ikigai-menu-sheet {
+    animation: none;
+  }
 }
 
 .score-badge {

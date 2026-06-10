@@ -105,7 +105,7 @@ export default function ByokSetupDialog({
 
   return createPortal(
     <div
-      className="filter-backdrop fixed inset-0 z-[70] flex items-end"
+      className="filter-backdrop fixed inset-0 z-[80] flex items-end"
       onClick={onClose}
       data-byok-backdrop
     >

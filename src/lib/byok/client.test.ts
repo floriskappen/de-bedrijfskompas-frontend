@@ -140,17 +140,18 @@ describe("bring your own key llm", () => {
   });
 
   it("byok request boundary returns content and usage", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "usable answer" } }],
+          usage: { total_tokens: 9, cost: 0.02 },
+        }),
+        { status: 200 }
+      )
+    );
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "usable answer" } }],
-            usage: { total_tokens: 9, cost: 0.02 },
-          }),
-          { status: 200 }
-        )
-      )
+      fetchMock
     );
 
     confirmByokSetup({
@@ -164,6 +165,7 @@ describe("bring your own key llm", () => {
     const result = await sendByokLlmRequest({
       purpose: "test",
       messages: [{ role: "user", content: "hello" }],
+      responseFormat: "json",
     });
 
     expect(result).toMatchObject({
@@ -174,6 +176,22 @@ describe("bring your own key llm", () => {
         costUsd: 0.02,
         costSource: "provider",
       },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/v1/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer sk-test",
+          "X-OpenRouter-Title": "de bedrijfskompas",
+        },
+      })
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      model: "deepseek/deepseek-v4-flash",
+      messages: [{ role: "user", content: "hello" }],
+      response_format: { type: "json_object" },
     });
   });
 

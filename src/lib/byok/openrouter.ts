@@ -59,7 +59,7 @@ export const openRouterAdapter: ByokProviderAdapter = {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${request.apiKey}`,
-          "X-Title": "de bedrijfskompas",
+          "X-OpenRouter-Title": "de bedrijfskompas",
         },
         body: JSON.stringify({
           model: request.modelId,

@@ -34,34 +34,34 @@ High-level checklist of what's left before the app feels complete. Each point is
 ## Bring your own key (local LLM access prerequisite)
 Separate change before Ikigai matching. Goal: one reusable browser-local LLM access layer that other flows can call without owning provider setup, key storage, allowance tracking, or provider error handling.
 
-- [ ] Add a new Ikigai/matching entry button to the map overview chrome; starting it opens the bring-your-own-key setup when no usable local LLM configuration is confirmed.
-- [ ] Build a provider setup UI with OpenRouter as the first supported provider.
-- [ ] Preselect the model intended for the matching flow (requested: DeepSeek V4 Flash; verify the exact OpenRouter model id during the change).
-- [ ] Let the user paste an API key for the selected provider.
-- [ ] Add an optional "save for next time" choice; saved keys stay only in browser-local storage and are never sent anywhere except the selected provider request.
-- [ ] On later visits, show the saved provider/model/key presence and ask the user to confirm using the saved key instead of exposing the full key.
-- [ ] Let the user set a local spending allowance for this flow/session.
-- [ ] Show a cost indication placeholder for now; later replace it with provider/model-aware estimates.
-- [ ] Create a reusable client/service boundary that accepts prompt requests from other components and returns structured LLM responses.
-- [ ] Track allowance usage locally from provider-reported usage/cost when available, with a conservative fallback when unavailable.
-- [ ] Handle provider failures clearly: invalid/expired key, insufficient credit, allowance exceeded, rate limits, network failure, malformed model response.
-- [ ] Persist only the provider config, saved-key choice, allowance state, and non-secret metadata locally; do not persist raw prompts/results here unless a calling feature explicitly owns that history.
-- [ ] Add focused tests for storage normalization, saved-key confirmation state, allowance accounting, and provider error mapping.
+- [x] Add a new Ikigai/matching entry button to the map overview chrome; starting it opens the bring-your-own-key setup when no usable local LLM configuration is confirmed.
+- [x] Build a provider setup UI with OpenRouter as the first supported provider.
+- [x] Preselect the model intended for the matching flow (requested: DeepSeek V4 Flash; verify the exact OpenRouter model id during the change).
+- [x] Let the user paste an API key for the selected provider.
+- [x] Add an optional "save for next time" choice; saved keys stay only in browser-local storage and are never sent anywhere except the selected provider request.
+- [x] On later visits, show the saved provider/model/key presence and ask the user to confirm using the saved key instead of exposing the full key.
+- [x] Let the user set a local spending allowance for this flow/session.
+- [x] Show a cost indication placeholder for now; later replace it with provider/model-aware estimates.
+- [x] Create a reusable client/service boundary that accepts prompt requests from other components and returns structured LLM responses.
+- [x] Track allowance usage locally from provider-reported usage/cost when available, with a conservative fallback when unavailable.
+- [x] Handle provider failures clearly: invalid/expired key, insufficient credit, allowance exceeded, rate limits, network failure, malformed model response.
+- [x] Persist only the provider config, saved-key choice, allowance state, and non-secret metadata locally; do not persist raw prompts/results here unless a calling feature explicitly owns that history.
+- [x] Add focused tests for storage normalization, saved-key confirmation state, allowance accounting, and provider error mapping.
 
 ## Ikigai matching (in-browser LLM, uses bring-your-own-key)
 The flow:
-- [ ] Ask the user questions to understand what they do and care about.
-- [ ] Map the "what they're good at" answers into minor ISCO tags, with strong/weak confidence candidates.
-- [ ] Filter companies down to those sharing the user's ISCO tags.
-- [ ] Sort by combined strength of user tags + company tags; take the top ~100.
-- [ ] UI step: show result count; let the user browse the list and see axes.
-- [ ] Let the user tighten axis filters (not tags) until results are <= 100.
-- [ ] LLM pass 1: feed the ~100 no-bullshit descriptions + user ikigai input → pick top ~25.
-- [ ] LLM pass 2: feed the full summaries of those ~25 → pick 3–10 strong matches with detailed, summary-grounded reasoning.
-- [ ] Results UI: show the 3–10 picks; let the user expand to see the other ~25 candidates.
-- [ ] Iteration: user can refine ("more in this direction…") → rerun passes 1 & 2 on the top 100.
-- [ ] Persist the whole thing locally: conversation history, filters set, and results per run.
-- [ ] Use the reusable bring-your-own-key LLM client for all prompt calls; the matching flow owns prompts, parsing, result history, and rerun state, but not API-key storage or provider request mechanics.
+- [x] Ask the user questions to understand what they do and care about.
+- [x] Map the "what they're good at" answers into minor ISCO tags, with strong/weak confidence candidates.
+- [x] Filter companies down to those sharing the user's ISCO tags.
+- [x] Sort by combined strength of user tags + company tags; take the top ~100.
+- [x] UI step: show result count; let the user browse the list and see axes.
+- [x] Let the user tighten axis filters (not tags) until results are <= 100.
+- [x] LLM pass 1: feed the ~100 no-bullshit descriptions + user ikigai input → pick top ~25.
+- [x] LLM pass 2: feed the full summaries of those ~25 → pick 3–10 strong matches with detailed, summary-grounded reasoning.
+- [x] Results UI: show the 3–10 picks; let the user expand to see the other ~25 candidates.
+- [x] Iteration: user can refine ("more in this direction…") → rerun passes 1 & 2 on the top 100.
+- [x] Persist the whole thing locally: conversation history, filters set, and results per run.
+- [x] Use the reusable bring-your-own-key LLM client for all prompt calls; the matching flow owns prompts, parsing, result history, and rerun state, but not API-key storage or provider request mechanics.
 
 ## Data — scraper service (new, third service before the pipeline)
 - [ ] Build a scraper service that collects company names (+ optional websites) from various sources.

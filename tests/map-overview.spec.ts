@@ -30,6 +30,68 @@ test.describe("map-overview E2E tests", () => {
     await page.evaluate((nextFilters: any) => (window as any).setTestFilters(nextFilters), filters);
   };
 
+  const installIkigaiMock = async (page: any) => {
+    await page.addInitScript(() => {
+      (window as any).__ikigaiSendRequest = async (request: any) => {
+        if (request.purpose === "ikigai-isco-derivation") {
+          return {
+            ok: true,
+            content: JSON.stringify({
+              candidates: [{ isco_code: "251", strength: "strong", reason: "software and systems work" }],
+            }),
+            usage: { costSource: "unknown" },
+          };
+        }
+        if (request.purpose === "ikigai-pass-1") {
+          return {
+            ok: true,
+            content: JSON.stringify({ candidate_company_ids: ["2daysmood", "ai-nl", "alterego-games"] }),
+            usage: { costSource: "unknown" },
+          };
+        }
+        return {
+          ok: true,
+          content: JSON.stringify({
+            selected_matches: [
+              { company_id: "2daysmood", reason: "past bij softwarewerk en menselijke werkdruk-signalen" },
+              { company_id: "ai-nl", reason: "sluit aan op ai-kennis en advieswerk" },
+            ],
+          }),
+          usage: { costSource: "unknown" },
+        };
+      };
+    });
+  };
+
+  const openIkigaiFlowWithByok = async (page: any) => {
+    await page.goto("/");
+    await page.locator("#ikigai-button").click();
+    await page.locator("#byok-api-key-input").fill("sk-playwright");
+    await page.locator("#byok-confirm").click();
+    await expect(page.locator("#ikigai-flow")).toBeVisible();
+  };
+
+  // The wizard shows one question per step; advance with #ikigai-next. The final
+  // next triggers ISCO derivation and lands on the candidate-review (tune) stage.
+  const fillIkigaiAnswers = async (page: any) => {
+    const answers = [
+      "ik bouw software voor organisaties",
+      "systemen ontwerpen, programmeren, productdenken",
+      "menselijke zorg, rust en praktisch nut",
+      "kleine teams met autonomie",
+    ];
+    for (const answer of answers) {
+      await page.locator("#ikigai-flow textarea").fill(answer);
+      await page.locator("#ikigai-next").click();
+    }
+  };
+
+  const deriveIkigaiCandidates = async (page: any) => {
+    await fillIkigaiAnswers(page);
+    await expect(page.locator("#ikigai-candidate-review")).toBeVisible();
+    await expect(page.locator("#ikigai-isco-tags")).toContainText("251");
+  };
+
   const getRevealState = async (page: any) => {
     return page.locator("#map-reveal-surface").evaluate((el: HTMLElement) => {
       const style = window.getComputedStyle(el);
@@ -414,7 +476,7 @@ test.describe("map-overview E2E tests", () => {
     await expect(page).not.toHaveURL(/.*filters/);
   });
 
-  test("map ikigai button opens byok setup", async ({ page }) => {
+  test("map ikigai button opens byok setup without config", async ({ page }) => {
     await page.goto("/");
 
     const button = page.locator("#ikigai-button");
@@ -441,9 +503,59 @@ test.describe("map-overview E2E tests", () => {
     await page.locator("#byok-allowance-input").fill("1.50");
     await page.locator("#byok-confirm").click();
 
-    await expect(page.locator("#byok-ready")).toHaveText("llm-toegang klaar");
+    await expect(page.locator("#ikigai-flow")).toBeVisible();
     const stored = await page.evaluate((key) => window.localStorage.getItem(key), BYOK_STORAGE_KEY);
     expect(stored).not.toContain("sk-playwright");
+  });
+
+  test("map ikigai button opens matching flow with config", async ({ page }) => {
+    await installIkigaiMock(page);
+    await openIkigaiFlowWithByok(page);
+
+    await expect(page.locator("#ikigai-flow")).toContainText("wat voor werk geeft je energie?");
+    await expect(page.locator("#ikigai-flow textarea")).toHaveCount(1);
+    await expect(page.locator("#ikigai-run")).toHaveCount(0);
+    await expect(page.locator("#ikigai-next")).toBeVisible();
+  });
+
+  test("ikigai selected matches are shown first", async ({ page }) => {
+    await installIkigaiMock(page);
+    await openIkigaiFlowWithByok(page);
+    await deriveIkigaiCandidates(page);
+
+    await page.locator("#ikigai-run").click();
+
+    await expect(page.locator("#ikigai-results")).toBeVisible();
+    await expect(page.locator(".ikigai-result-card").first()).toContainText("2DAYSMOOD");
+    await expect(page.locator(".ikigai-result-card").first()).toContainText("past bij softwarewerk");
+  });
+
+  test("ikigai broader candidates are available", async ({ page }) => {
+    await installIkigaiMock(page);
+    await openIkigaiFlowWithByok(page);
+    await deriveIkigaiCandidates(page);
+
+    await page.locator("#ikigai-run").click();
+    await page.locator("#ikigai-toggle-broader").click();
+
+    await expect(page.locator("#ikigai-broader-candidates")).toBeVisible();
+    await expect(page.locator("#ikigai-broader-candidates")).toContainText("Alterego Games");
+  });
+
+  test("ikigai visitor refines completed run", async ({ page }) => {
+    await installIkigaiMock(page);
+    await openIkigaiFlowWithByok(page);
+    await deriveIkigaiCandidates(page);
+
+    await page.locator("#ikigai-run").click();
+    await expect(page.locator("#ikigai-results")).toBeVisible();
+
+    await page.locator("#ikigai-refine-open").click();
+    await page.locator("#ikigai-refine-input").fill("meer richting zorg en minder richting verkoop");
+    await page.locator("#ikigai-refine").click();
+
+    await expect(page.locator("#ikigai-results")).toBeVisible();
+    await expect(page.locator("#ikigai-results")).toContainText("2DAYSMOOD");
   });
 
   test("reset clears active filters", async ({ page }) => {

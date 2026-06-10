@@ -30,6 +30,7 @@ import { readFavoriteIds, subscribeFavorites } from "../lib/favorites";
 import { hasConfirmedByokConfig } from "../lib/byok";
 import AxisGlyph from "./AxisGlyph";
 import ByokSetupDialog from "./ByokSetupDialog";
+import IkigaiFlowDialog from "./IkigaiFlowDialog";
 import FocusMeter from "./FocusMeter";
 
 interface MapViewProps {
@@ -130,6 +131,10 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isByokOpen, setIsByokOpen] = useState(false);
+  const [isIkigaiOpen, setIsIkigaiOpen] = useState(false);
+  // Held while the BYOK sheet is open on behalf of the Ikigai flow; runs once a
+  // usable key is confirmed so the flow can continue into the wizard.
+  const byokContinuationRef = useRef<(() => void) | null>(null);
   // `isFilterOpen` is intent; `filterVisible` keeps the sheet mounted long
   // enough to play the stepped exit animation, mirroring the peek card.
   const [filterVisible, setFilterVisible] = useState(false);
@@ -521,12 +526,14 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
     }));
   };
 
-  const handleIkigaiEntry = () => {
-    // Matching itself ships in a later change; this entry point only gates LLM access.
-    if (!hasConfirmedByokConfig()) {
-      setIsByokOpen(true);
+  // The Ikigai button just opens the flow; BYOK is requested from inside it when
+  // a run actually needs the LLM, so the run-selection menu can show first.
+  const requestByok = (onConfirmed: () => void) => {
+    if (hasConfirmedByokConfig()) {
+      onConfirmed();
       return;
     }
+    byokContinuationRef.current = onConfirmed;
     setIsByokOpen(true);
   };
 
@@ -905,10 +912,10 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         <button
           id="ikigai-button"
           type="button"
-          onClick={handleIkigaiEntry}
+          onClick={() => setIsIkigaiOpen(true)}
           aria-label={t("ikigai_entry", locale)}
-          aria-expanded={isByokOpen}
-          aria-controls="byok-setup"
+          aria-expanded={isByokOpen || isIkigaiOpen}
+          aria-controls={isByokOpen ? "byok-setup" : "ikigai-flow"}
           className="ontwerp-icon-button"
         >
           <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -1182,10 +1189,26 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         />
       )}
 
+      <IkigaiFlowDialog
+        open={isIkigaiOpen}
+        locale={locale}
+        companies={companies}
+        onRequestByok={requestByok}
+        onClose={() => setIsIkigaiOpen(false)}
+      />
       <ByokSetupDialog
         open={isByokOpen}
         locale={locale}
-        onClose={() => setIsByokOpen(false)}
+        onClose={() => {
+          byokContinuationRef.current = null;
+          setIsByokOpen(false);
+        }}
+        onConfirmed={() => {
+          setIsByokOpen(false);
+          const continuation = byokContinuationRef.current;
+          byokContinuationRef.current = null;
+          continuation?.();
+        }}
       />
     </div>
   );
