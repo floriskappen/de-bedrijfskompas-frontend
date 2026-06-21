@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { BYOK_STORAGE_KEY } from "../src/lib/byok";
 import { DOMAIN_ICON_PATHS } from "../src/lib/company-data/domain-icons";
 import { FAVORITES_STORAGE_KEY } from "../src/lib/favorites";
+import { IKIGAI_DRAFT_STORAGE_KEY, IKIGAI_STORAGE_KEY } from "../src/lib/ikigai";
+import { MAP_FILTERS_STORAGE_KEY } from "../src/lib/map-filters/storage";
 
 test.describe("map-overview E2E tests", () => {
   
@@ -178,9 +180,9 @@ test.describe("map-overview E2E tests", () => {
   test("every matching renderable company has one badge pin", async ({ page }) => {
     await page.goto("/");
     await setZoom(page, 16);
-    // We have 13 valid companies in companies.json (after dropping 4 invalid ones)
+    const companyCount = Number(await page.locator("#map-view").getAttribute("data-company-count"));
     const pins = page.locator("[data-company-id]");
-    await expect(pins).toHaveCount(13);
+    await expect(pins).toHaveCount(companyCount);
     await expect(pins.first().locator("[data-score-badge]")).toBeVisible();
   });
 
@@ -431,7 +433,8 @@ test.describe("map-overview E2E tests", () => {
       const text = await cl.textContent();
       clusterPointsCount += parseInt(text || "0", 10);
     }
-    expect(pinsCount + clusterPointsCount).toBe(13);
+    const companyCount = Number(await page.locator("#map-view").getAttribute("data-company-count"));
+    expect(pinsCount + clusterPointsCount).toBe(companyCount);
   });
 
   // Scenario: Clicking a cluster zooms in
@@ -584,6 +587,178 @@ test.describe("map-overview E2E tests", () => {
     await expect(page.locator('[data-axis-minimum="power"]')).toHaveAttribute("data-level", "none");
     await expect(page.locator('[data-axis-minimum="power"]')).toHaveText("geen voorkeur");
     await expect(page.locator('[data-domain-filter="sales-commercial"]')).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#filters-active-count")).toHaveCount(0);
+  });
+
+  test("map filters survive reload", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => {
+        window.localStorage.setItem(key, JSON.stringify({ companyIds: ["land-life-company"] }));
+      },
+      { key: FAVORITES_STORAGE_KEY }
+    );
+    await page.goto("/");
+    await setTestFilters(page, {
+      axisMinimums: { ecology: "high" },
+      selectedDomains: ["software-it"],
+      favoritesOnly: true,
+    });
+    await expect(page.locator("#filters-active-count")).toHaveText("3");
+    await expect
+      .poll(() => page.evaluate((key) => window.localStorage.getItem(key), MAP_FILTERS_STORAGE_KEY))
+      .not.toBeNull();
+
+    await page.reload();
+
+    await expect(page.locator("#filters-active-count")).toHaveText("3");
+    await page.locator("#filters-button").click();
+    await expect(page.locator('[data-axis-minimum="ecology"]')).toHaveAttribute("data-level", "high");
+    await expect(page.locator('[data-domain-filter="software-it"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#favorites-filter")).toHaveAttribute("aria-pressed", "true");
+    await setZoom(page, 16);
+    await expect(page.locator("[data-company-id]")).toHaveCount(1);
+    await expect(page.locator("#pin-land-life-company")).toBeVisible();
+  });
+
+  test("map filters survive detail-page round trip", async ({ page }) => {
+    await page.goto("/?selected=land-life-company");
+    await expect(page.locator("#peek-card-title")).toHaveText("Land Life Company B.V.");
+    await setTestFilters(page, { axisMinimums: { ecology: "high" } });
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
+    await expect
+      .poll(() => page.evaluate((key) => window.localStorage.getItem(key), MAP_FILTERS_STORAGE_KEY))
+      .not.toBeNull();
+
+    await page.locator("#peek-card-title").click();
+    await expect(page).toHaveURL(/\/land-life-company\/$/);
+    await page.locator('a[aria-label="terug naar de kaart"]').click();
+
+    await expect(page).toHaveURL(/\/?\?selected=land-life-company$/);
+    await expect(page.locator("#peek-card-title")).toHaveText("Land Life Company B.V.");
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
+    await page.locator("#filters-button").click();
+    await expect(page.locator('[data-axis-minimum="ecology"]')).toHaveAttribute("data-level", "high");
+  });
+
+  test("restored map filters reconcile an ineligible selection", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => {
+        window.localStorage.setItem(
+          key,
+          JSON.stringify({
+            schemaVersion: 1,
+            axisMinimums: { power: "high" },
+            selectedDomains: [],
+            favoritesOnly: false,
+          })
+        );
+      },
+      { key: MAP_FILTERS_STORAGE_KEY }
+    );
+
+    await page.goto("/?selected=land-life-company");
+
+    await expect(page.locator("#filters-active-count")).toHaveText("1");
+    await expect(page).not.toHaveURL(/selected=/);
+    await expect(page.locator("#peek-card-title")).toHaveCount(0);
+    await page.locator("#filters-button").click();
+    await expect(page.locator('[data-axis-minimum="power"]')).toHaveAttribute("data-level", "high");
+  });
+
+  test("map filters are locale-independent", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => {
+        window.localStorage.setItem(key, JSON.stringify({ companyIds: ["land-life-company"] }));
+      },
+      { key: FAVORITES_STORAGE_KEY }
+    );
+    await page.goto("/");
+    await setTestFilters(page, {
+      axisMinimums: { ecology: "high" },
+      selectedDomains: ["software-it"],
+      favoritesOnly: true,
+    });
+    await expect(page.locator("#filters-active-count")).toHaveText("3");
+    await expect
+      .poll(() => page.evaluate((key) => window.localStorage.getItem(key), MAP_FILTERS_STORAGE_KEY))
+      .not.toBeNull();
+
+    await page.goto("/en/");
+    await expect(page.locator("#filters-active-count")).toHaveText("3");
+    await page.locator("#filters-button").click();
+    await expect(page.locator('input[aria-label="ecology minimum"]')).toHaveValue("3");
+    await expect(page.locator('[data-domain-filter="software-it"]')).toContainText("software/it");
+    await expect(page.locator("#favorites-filter")).toContainText("favorites only");
+    await expect(page.locator("#favorites-filter")).toHaveAttribute("aria-pressed", "true");
+
+    await page.goto("/");
+    await expect(page.locator("#filters-active-count")).toHaveText("3");
+    await page.locator("#filters-button").click();
+    await expect(page.locator('input[aria-label="ecologie minimum"]')).toHaveValue("3");
+    await expect(page.locator('[data-domain-filter="software-it"]')).toContainText("software/ict");
+    await expect(page.locator("#favorites-filter")).toContainText("alleen favorieten");
+  });
+
+  test("map filter reset clears only persisted map filters", async ({ page }) => {
+    const storedPayloads = {
+      favorites: JSON.stringify({ companyIds: ["land-life-company"] }),
+      byok: JSON.stringify({ providerId: "openrouter", usageUsd: 0.25 }),
+      ikigai: JSON.stringify({ schemaVersion: 1, runs: [{ id: "stored-run" }] }),
+      ikigaiDraft: JSON.stringify({ schemaVersion: 1, stage: "questions" }),
+    };
+    await page.addInitScript(
+      ({ keys, payloads }) => {
+        window.localStorage.setItem(keys.favorites, payloads.favorites);
+        window.localStorage.setItem(keys.byok, payloads.byok);
+        window.localStorage.setItem(keys.ikigai, payloads.ikigai);
+        window.localStorage.setItem(keys.ikigaiDraft, payloads.ikigaiDraft);
+      },
+      {
+        keys: {
+          favorites: FAVORITES_STORAGE_KEY,
+          byok: BYOK_STORAGE_KEY,
+          ikigai: IKIGAI_STORAGE_KEY,
+          ikigaiDraft: IKIGAI_DRAFT_STORAGE_KEY,
+        },
+        payloads: storedPayloads,
+      }
+    );
+    await page.goto("/");
+    await setTestFilters(page, { axisMinimums: { ecology: "high" }, selectedDomains: ["software-it"] });
+    await expect(page.locator("#filters-active-count")).toHaveText("2");
+    await expect
+      .poll(() => page.evaluate((key) => window.localStorage.getItem(key), MAP_FILTERS_STORAGE_KEY))
+      .not.toBeNull();
+
+    await page.locator("#filters-button").click();
+    await page.locator("#filters-reset").click();
+
+    await expect(page.locator("#filters-active-count")).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate((key) => window.localStorage.getItem(key), MAP_FILTERS_STORAGE_KEY))
+      .toBeNull();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ keys }) => ({
+            favorites: window.localStorage.getItem(keys.favorites),
+            byok: window.localStorage.getItem(keys.byok),
+            ikigai: window.localStorage.getItem(keys.ikigai),
+            ikigaiDraft: window.localStorage.getItem(keys.ikigaiDraft),
+          }),
+          {
+            keys: {
+              favorites: FAVORITES_STORAGE_KEY,
+              byok: BYOK_STORAGE_KEY,
+              ikigai: IKIGAI_STORAGE_KEY,
+              ikigaiDraft: IKIGAI_DRAFT_STORAGE_KEY,
+            },
+          }
+        )
+      )
+      .toEqual(storedPayloads);
+
+    await page.reload();
     await expect(page.locator("#filters-active-count")).toHaveCount(0);
   });
 

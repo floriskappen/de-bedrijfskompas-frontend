@@ -6,7 +6,6 @@ import Supercluster from "supercluster";
 import type { AxisId, Company, DomainGroupId } from "../lib/company-data/types";
 import { AXIS_IDS, DOMAIN_GROUP_IDS } from "../lib/company-data/types";
 import {
-  DEFAULT_AXIS_MINIMUMS,
   filterCompanies,
   getCompaniesForAxisFacet,
   getCompositeScore,
@@ -28,6 +27,12 @@ import {
 import { DOMAIN_ICON_PATHS } from "../lib/company-data/domain-icons";
 import { readFavoriteIds, subscribeFavorites } from "../lib/favorites";
 import { hasConfirmedByokConfig } from "../lib/byok";
+import {
+  clearMapFilters,
+  getDefaultMapFilters,
+  readMapFilters,
+  writeMapFilters,
+} from "../lib/map-filters/storage";
 import AxisGlyph from "./AxisGlyph";
 import ByokSetupDialog from "./ByokSetupDialog";
 import IkigaiFlowDialog from "./IkigaiFlowDialog";
@@ -123,11 +128,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const markersRef = useRef<{ [id: string]: mapboxgl.Marker }>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [filters, setFilters] = useState<CompanyFilters>({
-    axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
-    selectedDomains: [],
-    favoritesOnly: false,
-  });
+  const [filters, setFilters] = useState<CompanyFilters>(() => readMapFilters());
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isByokOpen, setIsByokOpen] = useState(false);
@@ -198,6 +199,10 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
       ),
     [companies]
   );
+
+  useEffect(() => {
+    writeMapFilters(filters);
+  }, [filters]);
 
   // Initialize Supercluster
   useEffect(() => {
@@ -512,11 +517,8 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   };
 
   const resetFilters = () => {
-    setFilters({
-      axisMinimums: { ...DEFAULT_AXIS_MINIMUMS },
-      selectedDomains: [],
-      favoritesOnly: false,
-    });
+    clearMapFilters();
+    setFilters(getDefaultMapFilters());
   };
 
   const toggleFavoritesOnly = () => {
@@ -783,7 +785,12 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   return (
     <div className="relative w-full h-full">
       <div className="map-atmosphere" aria-hidden="true" />
-      <div ref={mapContainerRef} id="map-view" className="w-full h-full">
+      <div
+        ref={mapContainerRef}
+        id="map-view"
+        data-company-count={companies.length}
+        className="w-full h-full"
+      >
         {!isSupported && (
           <div
             className="absolute inset-0 bg-paper-deep"
