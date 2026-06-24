@@ -2,3 +2,7 @@
 	path = vendor/ontwerp
 	url = git@github.com:floriskappen/ontwerpsysteem.git
 	branch = release
+[submodule "vendor/byom"]
+	path = vendor/byom
+	url = git@github.com:floriskappen/bring-your-own-model.git
+	branch = release/v0.1
