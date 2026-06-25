@@ -3,15 +3,22 @@ import { createPortal } from "react-dom";
 import {
   BYOK_CHANGED_EVENT,
   BYOK_PROVIDERS,
+  BYOK_SPEND_CHANGED_EVENT,
+  clearByokSpendHistory,
   confirmByokSetup,
   confirmSavedByokKey,
   getByokModelsForCategory,
   readByokConfig,
+  readByokSpendHistory,
+  readByokUsageUsd,
   type ByokErrorCode,
   type ByokProviderId,
+  type ByokSpendRecord,
   type ByokStoredConfig,
 } from "../lib/byok";
 import { t, type MessageKey } from "../lib/i18n";
+import { getByokPurposeLabel } from "../lib/i18n/labels";
+import { ByokAllowanceMeter, ByokCostValue } from "./ByokCostValue";
 
 interface ByokSetupDialogProps {
   open: boolean;
@@ -50,8 +57,20 @@ export default function ByokSetupDialog({
   const [useNewKey, setUseNewKey] = useState(false);
   const [allowanceInput, setAllowanceInput] = useState("");
   const [workerModelId, setWorkerModelId] = useState("");
+  const [usageUsd, setUsageUsd] = useState(() => readByokUsageUsd());
+  const [history, setHistory] = useState<ByokSpendRecord[]>(() => readByokSpendHistory());
   const [message, setMessage] = useState<MessageKey | null>(null);
   const [error, setError] = useState<MessageKey | null>(null);
+
+  const refreshSpend = () => {
+    setUsageUsd(readByokUsageUsd());
+    setHistory(readByokSpendHistory());
+  };
+
+  const clearSpend = () => {
+    clearByokSpendHistory();
+    refreshSpend();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -64,6 +83,7 @@ export default function ByokSetupDialog({
     setApiKey("");
     setMessage(null);
     setError(null);
+    refreshSpend();
   }, [open]);
 
   // A stale key cleared mid-session (e.g. a 401 during an Ikigai run) emits the
@@ -79,12 +99,20 @@ export default function ByokSetupDialog({
     return () => window.removeEventListener(BYOK_CHANGED_EVENT, onChange);
   }, [open]);
 
+  // Spend history updates live as requests land (during this session or an
+  // in-flight Ikigai run) — re-read so the total and recent list stay current.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener(BYOK_SPEND_CHANGED_EVENT, refreshSpend);
+    return () => window.removeEventListener(BYOK_SPEND_CHANGED_EVENT, refreshSpend);
+  }, [open]);
+
   const provider = BYOK_PROVIDERS[providerId];
   const workerModels = useMemo(() => getByokModelsForCategory(providerId, "worker"), [providerId]);
   const selectedWorkerModelId = workerModelId || workerModels[0]?.id || "";
   const canUseSavedKey = config.hasSavedKey && !useNewKey;
   const allowanceReached =
-    config.allowanceUsd !== null && config.usageUsd >= config.allowanceUsd;
+    config.allowanceUsd !== null && usageUsd >= config.allowanceUsd;
 
   const confirmWithSavedKey = () => {
     const next = confirmSavedByokKey({
@@ -252,9 +280,55 @@ export default function ByokSetupDialog({
             </p>
           )}
 
-          <p id="byok-cost-placeholder" className="byok-cost-note mt-4">
-            {t("byok_cost_placeholder", locale)}
-          </p>
+          <div id="byok-spend" className="byok-cost-note mt-4">
+            <div className="byok-spend-head">
+              {config.allowanceUsd !== null && (
+                <ByokAllowanceMeter
+                  usageUsd={usageUsd}
+                  allowanceUsd={config.allowanceUsd}
+                  label={`${usageUsd.toFixed(4)} / ${config.allowanceUsd.toFixed(4)} usd`}
+                />
+              )}
+              <div className="byok-spend-figures">
+                <span className="byok-spend-label">{t("byok_spent", locale)}</span>
+                <span className="byok-spend-total font-mono tabular-nums" data-byok-spend-total>
+                  {usageUsd.toFixed(4)}
+                  <span className="byok-cost-unit">usd</span>
+                </span>
+                {config.allowanceUsd !== null && (
+                  <span className="byok-spend-allowance font-mono tabular-nums">
+                    {usageUsd.toFixed(4)} / {config.allowanceUsd.toFixed(4)} usd
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="byok-spend-recent">
+              <div className="byok-spend-recent-head">
+                <span className="byok-spend-recent-label">{t("byok_spend_recent", locale)}</span>
+                {history.length > 0 && (
+                  <button type="button" className="byok-spend-clear" onClick={clearSpend}>
+                    {t("byok_spend_clear", locale)}
+                  </button>
+                )}
+              </div>
+              {history.length === 0 ? (
+                <div className="byok-spend-empty">
+                  <span className="byok-fallow" aria-hidden="true" />
+                  <span>{t("byok_spend_empty", locale)}</span>
+                </div>
+              ) : (
+                <ul id="byok-spend-history" className="byok-spend-list">
+                  {history.slice(0, 6).map((record) => (
+                    <li key={record.id} className="byok-spend-row">
+                      <span className="byok-spend-purpose">{getByokPurposeLabel(record.purpose, locale)}</span>
+                      <ByokCostValue landed costUsd={record.costUsd} locale={locale} className="byok-spend-amount" />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
 
           {(error || message) && (
             <p

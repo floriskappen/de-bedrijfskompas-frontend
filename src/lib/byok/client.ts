@@ -1,4 +1,7 @@
 import { estimateByokRequestCost, isByokRequestWithinBudget, releaseByokEstimate, reserveByokEstimate } from "./budget";
+import { emitByokCostEnded, emitByokCostLanded, emitByokCostPending } from "./cost";
+import { appendByokSpendRecord } from "./history";
+import { decByokInFlightRequest, incByokInFlightRequest } from "./leaveGuard";
 import { openRouterAdapter } from "./openrouter";
 import { getByokModel, getByokProvider } from "./providers";
 import {
@@ -6,13 +9,26 @@ import {
   getSessionByokApiKey,
   isByokAllowanceExhausted,
   readByokConfig,
-  updateByokUsage,
 } from "./storage";
-import type { ByokProviderAdapter, ByokProviderId, ByokRequest, ByokResult } from "./types";
+import type {
+  ByokProviderAdapter,
+  ByokProviderId,
+  ByokRequest,
+  ByokResult,
+  ByokStreamError,
+  ByokUsage,
+} from "./types";
 
 const ADAPTERS: Record<ByokProviderId, ByokProviderAdapter> = {
   openrouter: openRouterAdapter,
 };
+
+let requestCounter = 0;
+
+function makeRequestId(): string {
+  requestCounter += 1;
+  return `byok-req-${requestCounter}`;
+}
 
 export async function sendByokLlmRequest(request: ByokRequest): Promise<ByokResult> {
   const config = readByokConfig();
@@ -31,24 +47,62 @@ export async function sendByokLlmRequest(request: ByokRequest): Promise<ByokResu
 
   const provider = getByokProvider(config.providerId);
   const adapter = ADAPTERS[provider.id];
+  const requestId = makeRequestId();
+  const purpose = request.purpose;
+
   reserveByokEstimate(estimateUsd);
-  let result: ByokResult;
+  incByokInFlightRequest();
+  emitByokCostPending({ requestId, purpose });
+
+  let content = "";
+  let usage: ByokUsage | null = null;
   try {
-    result = await adapter.send({
-      ...request,
-      apiKey,
-      providerId: provider.id,
-      modelId,
-    });
+    for await (const event of adapter.send({ ...request, apiKey, providerId: provider.id, modelId })) {
+      if (event.type === "text") {
+        content += event.delta;
+      } else {
+        usage = event.usage;
+      }
+    }
+  } catch (error) {
+    const errorCode = isByokStreamError(error) ? error.error : "network_error";
+    if (errorCode === "invalid_key") clearByokKey();
+    emitByokCostEnded({ requestId, purpose });
+    return { ok: false, error: errorCode };
   } finally {
     releaseByokEstimate(estimateUsd);
+    decByokInFlightRequest();
   }
 
-  if (result.ok) {
-    updateByokUsage(result.usage.costUsd, result.usage.costSource);
-  } else if (result.error === "invalid_key") {
-    clearByokKey();
+  // The stream completed. The adapter guarantees a terminal usage event; an
+  // empty body or missing usage is malformed and records no spend.
+  if (!content.trim() || !usage) {
+    emitByokCostEnded({ requestId, purpose });
+    return { ok: false, error: "malformed_response" };
   }
 
-  return result;
+  const tokens = {
+    promptTokens: usage.promptTokens,
+    completionTokens: usage.completionTokens,
+    totalTokens: usage.totalTokens,
+  };
+  appendByokSpendRecord({
+    purpose,
+    costUsd: usage.costUsd ?? null,
+    costSource: usage.costSource,
+    tokens,
+  });
+  emitByokCostLanded({
+    requestId,
+    purpose,
+    costUsd: usage.costUsd ?? null,
+    costSource: usage.costSource,
+    tokens,
+  });
+
+  return { ok: true, content, usage };
+}
+
+function isByokStreamError(value: unknown): value is ByokStreamError {
+  return value instanceof Error && value.name === "ByokStreamError";
 }

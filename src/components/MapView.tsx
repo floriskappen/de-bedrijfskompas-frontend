@@ -35,6 +35,7 @@ import {
 } from "../lib/map-filters/storage";
 import AxisGlyph from "./AxisGlyph";
 import ByokSetupDialog from "./ByokSetupDialog";
+import ByokCostOverlay from "./ByokCostOverlay";
 import IkigaiFlowDialog from "./IkigaiFlowDialog";
 import FocusMeter from "./FocusMeter";
 
@@ -1203,6 +1204,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         onRequestByok={requestByok}
         onClose={() => setIsIkigaiOpen(false)}
       />
+      <ByokCostOverlay locale={locale} />
       <ByokSetupDialog
         open={isByokOpen}
         locale={locale}

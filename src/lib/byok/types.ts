@@ -2,7 +2,7 @@ export type ByokProviderId = "openrouter";
 
 export type ByokModelCategory = "frontier" | "worker";
 
-export type ByokCostSource = "provider" | "estimated" | "unknown";
+export type ByokCostSource = "provider" | "unknown";
 
 export type ByokErrorCode =
   | "missing_config"
@@ -33,8 +33,6 @@ export interface ByokStoredConfig {
   saveKey: boolean;
   hasSavedKey: boolean;
   allowanceUsd: number | null;
-  usageUsd: number;
-  usageCostSource: ByokCostSource;
   confirmedAt: string | null;
 }
 
@@ -89,7 +87,22 @@ export interface ByokProviderRequest extends ByokRequest {
   providerId: ByokProviderId;
 }
 
+export type ByokStreamEvent =
+  | { type: "text"; delta: string }
+  | { type: "usage"; usage: ByokUsage };
+
+// A streaming transport failure carries a normalized app-level error code so the
+// boundary can clear the key / map the error without parsing provider text.
+export class ByokStreamError extends Error {
+  readonly error: ByokErrorCode;
+  constructor(error: ByokErrorCode) {
+    super(error);
+    this.name = "ByokStreamError";
+    this.error = error;
+  }
+}
+
 export interface ByokProviderAdapter {
   id: ByokProviderId;
-  send(request: ByokProviderRequest): Promise<ByokResult>;
+  send(request: ByokProviderRequest): AsyncIterable<ByokStreamEvent>;
 }

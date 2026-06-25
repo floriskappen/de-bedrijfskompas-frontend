@@ -494,13 +494,13 @@ test.describe("map-overview E2E tests", () => {
     await expect(page.locator("#byok-api-key-input")).toBeVisible();
   });
 
-  test("byok setup configures openrouter with cost placeholder", async ({ page }) => {
+  test("byok setup configures openrouter and shows spend surface", async ({ page }) => {
     await page.goto("/");
     await page.locator("#ikigai-button").click();
 
     await expect(page.locator("#byok-provider")).toHaveValue("openrouter");
     await expect(page.locator("#byok-model")).toHaveValue("deepseek/deepseek-v4-flash");
-    await expect(page.locator("#byok-cost-placeholder")).toContainText("kostenindicatie volgt later");
+    await expect(page.locator("#byok-spend")).toContainText("$0.0000");
 
     await page.locator("#byok-api-key-input").fill("sk-playwright");
     await page.locator("#byok-allowance-input").fill("1.50");

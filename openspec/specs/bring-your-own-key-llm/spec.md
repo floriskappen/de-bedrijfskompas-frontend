@@ -5,17 +5,12 @@ TBD - created by archiving change add-bring-your-own-key-llm. Update Purpose aft
 ## Requirements
 ### Requirement: Provider setup
 
-The app SHALL provide a browser-local LLM setup flow that supports OpenRouter as the available provider, lets the visitor provide an API key, lets the visitor choose a model within the category the app's model-powered features declare, and shows a cost indication placeholder until provider/model-aware estimates are implemented. The setup SHALL require explicit visitor confirmation before the app treats the configuration as usable for LLM requests.
+The app SHALL provide a browser-local LLM setup flow that supports OpenRouter as the available provider, lets the visitor provide an API key, lets the visitor choose a model within the category the app's model-powered features declare, and surfaces the visitor's local spend and spend history alongside the key. The setup SHALL require explicit visitor confirmation before the app treats the configuration as usable for LLM requests.
 
 #### Scenario: Visitor configures OpenRouter
 
 - **WHEN** a visitor selects OpenRouter, enters an API key, and confirms setup
 - **THEN** the LLM configuration is available for browser-local requests in the current session
-
-#### Scenario: Cost estimate placeholder is visible
-
-- **WHEN** the setup flow is shown
-- **THEN** it displays a cost indication area without claiming an exact provider charge
 
 ### Requirement: Optional local key persistence
 
@@ -34,7 +29,7 @@ The app SHALL keep pasted API keys in browser memory by default and SHALL persis
 
 ### Requirement: Local allowance tracking
 
-The app SHALL let the visitor set a local spending allowance for LLM usage and SHALL prevent provider requests once the locally tracked allowance is exhausted. Before sending a request, the app SHALL estimate the request's token cost and SHALL refuse the request with an allowance-exceeded error when the estimated cost plus any in-flight reservations plus already-accumulated usage would exceed the allowance, so concurrent or multi-step calls cannot blow past the ceiling before spend catches up. When the visitor has not set an allowance, the app SHALL NOT enforce a ceiling. Usage SHALL be updated from provider-reported usage or cost when available; when exact cost is unavailable, the app SHALL record a conservative estimate or unknown-cost state rather than presenting an exact value. The pre-flight estimate is a best-effort guard only and SHALL NOT be presented to the visitor as the cost of the request; displayed cost comes from provider-reported real usage.
+The app SHALL let the visitor set a local spending allowance for LLM usage and SHALL prevent provider requests once the locally tracked allowance is exhausted. Before sending a request, the app SHALL estimate the request's token cost and SHALL refuse the request with an allowance-exceeded error when the estimated cost plus any in-flight reservations plus already-accumulated usage would exceed the allowance, so concurrent or multi-step calls cannot blow past the ceiling before spend catches up. When the visitor has not set an allowance, the app SHALL NOT enforce a ceiling. Locally tracked usage SHALL be derived as the sum of the local spend history records, each recorded from provider-reported real usage when available; when real usage is unavailable the app SHALL record an unknown-cost state rather than presenting an exact value. The pre-flight estimate is a best-effort guard only and SHALL NOT be presented to the visitor as the cost of a request; displayed cost comes from provider-reported real usage.
 
 #### Scenario: Allowance blocks new request
 
@@ -64,7 +59,7 @@ The app SHALL let the visitor set a local spending allowance for LLM usage and S
 #### Scenario: Provider usage updates local state
 
 - **WHEN** a provider response includes usable usage or cost metadata
-- **THEN** the local usage state is updated before the next request can run
+- **THEN** a local spend history record is appended with that real usage and the cumulative usage reflects it before the next request can run
 
 ### Requirement: Reusable LLM request boundary
 
@@ -150,4 +145,36 @@ The LLM request boundary SHALL treat a provider auth failure (`invalid_key`, HTT
 #### Scenario: Cleared key surfaces a re-connect prompt
 - **WHEN** a model-powered flow receives an `invalid_key` result after the key was cleared
 - **THEN** the flow surfaces a localized re-connect state and the setup surface no longer offers the cleared saved key for reuse
+
+### Requirement: Cost transparency
+
+The app SHALL make LLM spend legible to the visitor. Each model-powered request SHALL show its cost from the provider's real usage data, shown as pending while the request is in flight and as the real amount when usage arrives; the app SHALL NOT display a fabricated or estimated cost as the cost of a request. Spend SHALL be attributable per request at minimum and per feature where the calling feature declares a `purpose`. The app SHALL keep a local, on-device spend history — one record per completed request, stored next to the key setup and never sent to any developer endpoint — and this history SHALL be the source of truth for cumulative usage. Each history record SHALL carry the request `purpose`, the cost in the provider's billing unit (USD), the cost source, optional token counts, and a timestamp; it SHALL NOT carry prompt or response content. If leaving or closing the page would abort an in-flight paid request, the app SHALL intercept with a leave warning; the warning SHALL also fire when a consuming feature has signaled unsaved work that would be lost. History record shape: `{ id: string; purpose: string; costUsd: number | null; costSource: "provider" | "unknown"; promptTokens?: number; completionTokens?: number; totalTokens?: number; timestamp: string }`, where `costUsd: null` means usage did not arrive.
+
+#### Scenario: Live cost shows pending then real usage
+
+- **WHEN** a model-powered request is in flight
+- **THEN** the cost surface shows the request's cost as pending
+- **AND** when the provider's real usage arrives the surface shows the real cost amount instead of the pending state
+
+#### Scenario: Spend is attributed per feature
+
+- **WHEN** a request completes whose calling feature declared a purpose
+- **THEN** the appended spend history record carries that purpose and the live cost surface attributes the cost to it
+
+#### Scenario: Spend history is local and not transmitted
+
+- **WHEN** a spend history record is written
+- **THEN** it is stored on the device next to the key
+- **AND** no developer endpoint receives the record, the cost, or the prompt or response content
+
+#### Scenario: Leave warning fires during in-flight paid request or unsaved feature work
+
+- **WHEN** an in-flight paid request is running or a consuming feature has signaled unsaved work that would be lost
+- **AND** the visitor leaves or closes the page
+- **THEN** the app intercepts navigation with a leave warning before the abort or loss occurs
+
+#### Scenario: Setup sheet shows cumulative spend and history
+
+- **WHEN** the BYOK setup sheet is shown
+- **THEN** it surfaces the cumulative spend derived from the local history, the allowance progress when an allowance is set, and the recent on-device spend records, presented in the active locale
 

@@ -530,6 +530,9 @@ export default function IkigaiFlowDialog({ open, locale, companies, onRequestByo
     }
   };
 
+  // The live cost reads as part of the germinating surface, not a ledger bolted
+  // under it: a faint "kosten" mark over a centered row of per-pass figures, each
+  // ripening from pending → real usage as the provider reports it.
   if (!open || typeof document === "undefined") return null;
 
   // ───────── menu / run selection (bottom sheet) ─────────

@@ -1,3 +1,4 @@
+import { readByokUsageUsd } from "./history";
 import type { ByokModelConfig, ByokRequest, ByokStoredConfig } from "./types";
 
 // Conservative fallback USD-per-token rate used ONLY for the budget ceiling guard
@@ -47,13 +48,14 @@ export function releaseByokEstimate(estimateUsd: number): void {
 }
 
 // A request is within budget when the visitor has set no allowance (no ceiling) or
-// when accumulated usage plus in-flight reservations plus this estimate still fits.
+// when derived cumulative usage plus in-flight reservations plus this estimate
+// still fits. Cumulative usage is derived from the local spend history.
 export function isByokRequestWithinBudget(
-  config: Pick<ByokStoredConfig, "allowanceUsd" | "usageUsd">,
+  config: Pick<ByokStoredConfig, "allowanceUsd">,
   estimateUsd: number
 ): boolean {
   if (config.allowanceUsd === null) return true;
-  return config.usageUsd + inFlightUsd + estimateUsd <= config.allowanceUsd;
+  return readByokUsageUsd() + inFlightUsd + estimateUsd <= config.allowanceUsd;
 }
 
 export function resetByokBudgetForTests(): void {

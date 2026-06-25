@@ -1,6 +1,6 @@
 import { BYOK_PROVIDERS, getByokModelsForCategory, getDefaultByokModelForCategory } from "./providers";
+import { readByokUsageUsd } from "./history";
 import type {
-  ByokCostSource,
   ByokModelCategory,
   ByokProviderId,
   ByokSetupInput,
@@ -52,11 +52,6 @@ function normalizeMoney(value: unknown, fallback: number | null): number | null 
   return Math.round(value * 1_000_000) / 1_000_000;
 }
 
-function normalizeUsageSource(value: unknown): ByokCostSource {
-  if (value === "provider" || value === "estimated" || value === "unknown") return value;
-  return "unknown";
-}
-
 function normalizeStoredConfig(value: unknown): ByokStoredConfig & { savedKey: string | null } {
   const payload = value && typeof value === "object" ? (value as StoredPayload) : {};
   const providerId = normalizeProviderId(payload.providerId);
@@ -69,8 +64,6 @@ function normalizeStoredConfig(value: unknown): ByokStoredConfig & { savedKey: s
     saveKey: Boolean(payload.saveKey && savedKey),
     hasSavedKey: Boolean(savedKey),
     allowanceUsd: normalizeMoney(payload.allowanceUsd, null),
-    usageUsd: normalizeMoney(payload.usageUsd, 0) ?? 0,
-    usageCostSource: normalizeUsageSource(payload.usageCostSource),
     confirmedAt: typeof payload.confirmedAt === "string" ? payload.confirmedAt : null,
     savedKey,
   };
@@ -113,8 +106,6 @@ function toPublicConfig(payload: ByokStoredConfig & { savedKey?: string | null }
     saveKey: Boolean(payload.saveKey && payload.hasSavedKey),
     hasSavedKey: Boolean(payload.hasSavedKey),
     allowanceUsd: payload.allowanceUsd,
-    usageUsd: payload.usageUsd,
-    usageCostSource: payload.usageCostSource,
     confirmedAt: payload.confirmedAt,
   };
 }
@@ -128,8 +119,6 @@ export function getDefaultByokConfig(): ByokStoredConfig {
     saveKey: false,
     hasSavedKey: false,
     allowanceUsd: null,
-    usageUsd: 0,
-    usageCostSource: "unknown",
     confirmedAt: null,
   };
 }
@@ -161,8 +150,6 @@ export function confirmByokSetup(input: ByokSetupInput): ByokStoredConfig {
     saveKey: input.saveKey,
     savedKey: input.saveKey ? apiKey : current?.savedKey ?? undefined,
     allowanceUsd: normalizeMoney(input.allowanceUsd, null),
-    usageUsd: current?.usageUsd ?? 0,
-    usageCostSource: current?.usageCostSource ?? "unknown",
     confirmedAt: new Date().toISOString(),
   });
 
@@ -195,19 +182,8 @@ export function confirmSavedByokKey(options?: ConfirmSavedByokKeyOptions): ByokS
   });
 }
 
-export function updateByokUsage(costUsd: number | null | undefined, source: ByokCostSource): ByokStoredConfig {
-  const stored = readStoredPayload() ?? { ...getDefaultByokConfig(), savedKey: null };
-  const nextCost = normalizeMoney(costUsd, null);
-  const usageUsd = nextCost === null ? stored.usageUsd : stored.usageUsd + nextCost;
-  return writeStoredPayload({
-    ...stored,
-    usageUsd,
-    usageCostSource: source,
-  });
-}
-
-export function isByokAllowanceExhausted(config: Pick<ByokStoredConfig, "allowanceUsd" | "usageUsd">): boolean {
-  return config.allowanceUsd !== null && config.usageUsd >= config.allowanceUsd;
+export function isByokAllowanceExhausted(config: Pick<ByokStoredConfig, "allowanceUsd">): boolean {
+  return config.allowanceUsd !== null && readByokUsageUsd() >= config.allowanceUsd;
 }
 
 export function clearByokKey(): ByokStoredConfig {

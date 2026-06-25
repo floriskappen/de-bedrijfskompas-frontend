@@ -522,6 +522,372 @@ em {
   border-color: var(--color-border-accent);
 }
 
+/* — spend surface (BYOM 06: live cost + local history) — */
+
+/* shared cost figure: a mono tabular value with a quiet `usd` mark; pending and
+   unknown are the honest words, the pending one ticking on the stepped clock. */
+.byok-cost-value {
+  color: var(--color-text-default);
+}
+
+.byok-cost-value.is-pending,
+.byok-cost-value.is-unknown {
+  color: var(--color-text-quiet);
+}
+
+.byok-cost-value.is-pending {
+  animation: byok-pending 1.6s steps(4, end) infinite;
+}
+
+@keyframes byok-pending {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.byok-cost-unit {
+  margin-left: 0.35em;
+  color: var(--color-text-faint);
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+}
+
+/* the allowance as the ontwerp "rising" state — a vessel filling from the foot
+   as spend climbs; the water deepens to the accent at the ceiling. */
+.byok-vessel {
+  position: relative;
+  flex-shrink: 0;
+  width: 30px;
+  height: 44px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-page);
+  overflow: hidden;
+}
+
+.byok-vessel-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--color-accent-soft);
+  opacity: 0.5;
+  transform: translateY(calc((1 - var(--byok-level, 0)) * 100%));
+  transition: transform 600ms steps(6, end);
+}
+
+.byok-vessel.is-full .byok-vessel-fill {
+  background: var(--color-accent-base);
+  opacity: 0.65;
+}
+
+.byok-spend-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.byok-spend-figures {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.byok-spend-label {
+  font: var(--typography-label);
+  text-transform: lowercase;
+  color: var(--color-text-quiet);
+}
+
+.byok-spend-total {
+  display: flex;
+  align-items: baseline;
+  font-size: 1.55rem;
+  line-height: 1;
+  color: var(--color-text-default);
+}
+
+.byok-spend-allowance {
+  font-size: 0.72rem;
+  color: var(--color-text-quiet);
+}
+
+.byok-spend-recent {
+  display: grid;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-quiet);
+}
+
+.byok-spend-recent-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.byok-spend-recent-label {
+  font: var(--typography-label);
+  text-transform: lowercase;
+  color: var(--color-text-soft);
+}
+
+.byok-spend-clear {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: var(--typography-body-sm);
+  color: var(--color-accent-base);
+  cursor: pointer;
+}
+
+.byok-spend-clear:hover {
+  text-decoration: underline;
+}
+
+.byok-spend-list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.byok-spend-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.byok-spend-purpose {
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+}
+
+.byok-spend-amount {
+  font: var(--typography-body-sm);
+}
+
+/* fallow (empty) state — the tilled-but-empty plot from ontwerp states.md */
+.byok-spend-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-quiet);
+  font: var(--typography-body-sm);
+}
+
+.byok-fallow {
+  flex-shrink: 0;
+  width: 42px;
+  height: 26px;
+  border: 1px solid var(--color-border-quiet);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--color-border-quiet) 0 1px,
+    transparent 1px 7px
+  );
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .byok-vessel-fill {
+    transition: none;
+  }
+  .byok-cost-value.is-pending {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* app-level cost overlay — lives apart from any feature screen, riding above the
+   fullscreen flow (z 75) so it stays readable while a query runs and after it
+   settles. Top-right, tucked below the corner chrome (filters / flow close).
+   The root only positions; the dither layer and the card stack inside it. */
+.byok-cost-overlay-root {
+  position: fixed;
+  top: 4.75rem;
+  right: var(--space-md);
+  z-index: 80;
+  animation: byok-overlay-in 220ms steps(5, end);
+}
+
+/* dithered drop shadow — an offset field of ink dots, masked so it fades toward
+   the far corner, so the lift reads as stippled ink on paper (halftone) rather
+   than a smooth blur. It sits BEHIND the card (lower stacking order, real
+   sibling — not a negative-z pseudo), offset down-right so only a rectangular
+   band hugging the bottom + right edges shows past the opaque card. Static, so
+   it's untouched by reduced-motion. */
+.byok-cost-overlay-dither {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--button-radius);
+  transform: translate(5px, 7px);
+  background-image: radial-gradient(var(--color-text-default) 0.6px, transparent 0.7px);
+  background-size: 3px 3px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+@keyframes byok-overlay-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* the card itself — opaque paper above the dither, with a hairline + faint lift */
+.byok-cost-overlay {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--button-radius);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-page);
+  background-size: 600px 600px, auto;
+  box-shadow: 0 6px 16px -14px rgba(31, 27, 22, 0.5);
+}
+
+/* — collapsed pill: the amount + a pending pulse; tap to expand, × to dismiss — */
+.byok-cost-overlay.is-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem 0.3rem 0.7rem;
+  touch-action: none;
+}
+
+.byok-cost-overlay-pill-main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.byok-cost-overlay-pill-label {
+  font: var(--typography-label);
+  text-transform: lowercase;
+  color: var(--color-text-soft);
+}
+
+.byok-cost-overlay-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent-base);
+  animation: byok-pending 1.6s steps(4, end) infinite;
+}
+
+/* — expanded panel: full-bleed sections divided by hairlines — */
+.byok-cost-overlay.is-expanded {
+  display: grid;
+  width: min(16.5rem, calc(100vw - 2 * var(--space-md)));
+  touch-action: none;
+}
+
+.byok-cost-overlay.is-expanded:not(.is-busy) {
+  cursor: grab;
+}
+
+.byok-cost-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0.5rem var(--space-inset);
+  background: var(--color-surface-deep);
+  border-bottom: 1px solid var(--color-border-quiet);
+  border-radius: var(--button-radius) var(--button-radius) 0 0;
+}
+
+.byok-cost-overlay-title {
+  font: var(--typography-label);
+  text-transform: lowercase;
+  letter-spacing: 0.01em;
+  color: var(--color-text-default);
+}
+
+.byok-cost-overlay-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* minimal header controls — no heavy button chrome inside the tight header */
+.byok-cost-overlay-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-text-quiet);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.byok-cost-overlay-control:hover {
+  color: var(--color-text-default);
+}
+
+.byok-cost-overlay-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: var(--space-sm) var(--space-inset);
+  list-style: none;
+}
+
+.byok-cost-overlay-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.byok-cost-overlay-purpose {
+  color: var(--color-text-soft);
+  font: var(--typography-body-sm);
+}
+
+.byok-cost-overlay-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0.5rem var(--space-inset);
+  border-top: 1px solid var(--color-border-default);
+}
+
+.byok-cost-overlay-total-label {
+  font: var(--typography-label);
+  text-transform: lowercase;
+  color: var(--color-text-quiet);
+}
+
+.byok-cost-overlay-total-value {
+  font-size: 0.95rem;
+  color: var(--color-text-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .byok-cost-overlay {
+    animation: none;
+  }
+  .byok-cost-overlay-dot {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
 .byok-status.is-error {
   color: var(--color-text-default);
   border-style: dashed;

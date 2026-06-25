@@ -113,3 +113,24 @@ export function getFocusMinimumLabel(level: FocusLevel, locale: string): string 
 export function getDomainGroupLabel(domain: DomainGroupId, locale: string): string {
   return DOMAIN_GROUP_LABELS[normalizeLocale(locale)][domain];
 }
+
+// BYOK spend attribution labels — each names the *step the model performs*, in
+// plain language, so the cost surface reads as the work being done (not internal
+// pass names). An unknown purpose falls back to a generic word.
+const BYOK_PURPOSE_LABELS: Record<Locale, Record<string, string>> = {
+  nl: {
+    "ikigai-isco-derivation": "werkvelden afleiden",
+    "ikigai-pass-1": "bedrijven voorselecteren",
+    "ikigai-pass-2": "matches kiezen",
+  },
+  en: {
+    "ikigai-isco-derivation": "finding work fields",
+    "ikigai-pass-1": "shortlisting companies",
+    "ikigai-pass-2": "choosing matches",
+  },
+};
+
+export function getByokPurposeLabel(purpose: string, locale: string): string {
+  const labels = BYOK_PURPOSE_LABELS[normalizeLocale(locale)];
+  return labels[purpose] ?? (normalizeLocale(locale) === "en" ? "request" : "verzoek");
+}

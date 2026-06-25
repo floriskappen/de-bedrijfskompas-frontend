@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BYOK_PROVIDERS,
+  BYOK_SPEND_STORAGE_KEY,
   BYOK_STORAGE_KEY,
   clearByokSessionForTests,
   confirmByokSetup,
@@ -8,10 +9,58 @@ import {
   getSessionByokApiKey,
   readByokConfig,
   readByokInFlightUsd,
+  readByokSpendHistory,
+  readByokUsageUsd,
   resetByokBudgetForTests,
+  resetByokCostForTests,
+  resetByokHistoryForTests,
   resetByokForTests,
+  resetByokLeaveGuardForTests,
   sendByokLlmRequest,
 } from ".";
+
+function sseChunks(events: string[]): string[] {
+  return events.map((event) => `data: ${event}\n\n`);
+}
+
+function streamingResponse(events: string[], init?: ResponseInit): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of sseChunks(events)) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+    ...init,
+  });
+}
+
+// A response whose body stream stays pending until `release` enqueues chunks.
+function pendingStreamResponse(): { response: Response; release: (events: string[]) => void } {
+  const encoder = new TextEncoder();
+  let release!: (events: string[]) => void;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      release = (events: string[]) => {
+        for (const chunk of sseChunks(events)) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      };
+    },
+  });
+  return {
+    response: new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } }),
+    release,
+  };
+}
+
+const SUCCESS_EVENTS = [
+  '{"choices":[{"delta":{"content":"answer"}}]}',
+  '{"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"cost":0.25}}',
+  "[DONE]",
+];
 
 describe("bring your own key llm", () => {
   beforeEach(() => {
@@ -19,15 +68,9 @@ describe("bring your own key llm", () => {
     const store = new Map<string, string>();
     const localStorage = {
       getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        store.set(key, value);
-      },
-      removeItem: (key: string) => {
-        store.delete(key);
-      },
-      clear: () => {
-        store.clear();
-      },
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
     };
     const fakeWindow = {
       localStorage,
@@ -35,13 +78,11 @@ describe("bring your own key llm", () => {
       removeEventListener: events.removeEventListener.bind(events),
       dispatchEvent: events.dispatchEvent.bind(events),
     };
-
     vi.stubGlobal("window", fakeWindow);
     vi.stubGlobal(
       "CustomEvent",
       class TestCustomEvent extends Event {
         detail: unknown;
-
         constructor(type: string, init?: CustomEventInit) {
           super(type);
           this.detail = init?.detail;
@@ -53,6 +94,9 @@ describe("bring your own key llm", () => {
   afterEach(() => {
     resetByokForTests();
     resetByokBudgetForTests();
+    resetByokHistoryForTests();
+    resetByokCostForTests();
+    resetByokLeaveGuardForTests();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -113,19 +157,8 @@ describe("bring your own key llm", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("byok provider usage updates allowance state", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "answer" } }],
-            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, cost: 0.25 },
-          }),
-          { status: 200 }
-        )
-      )
-    );
+  it("byok provider usage appends a spend history record", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamingResponse(SUCCESS_EVENTS)));
 
     confirmByokSetup({
       providerId: "openrouter",
@@ -136,29 +169,81 @@ describe("bring your own key llm", () => {
     });
 
     await sendByokLlmRequest({
-      purpose: "test",
+      purpose: "ikigai-pass-1",
       category: "worker",
       messages: [{ role: "user", content: "hello" }],
     });
 
-    expect(readByokConfig().usageUsd).toBe(0.25);
-    expect(readByokConfig().usageCostSource).toBe("provider");
+    const history = readByokSpendHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      purpose: "ikigai-pass-1",
+      costUsd: 0.25,
+      costSource: "provider",
+    });
+    expect(readByokUsageUsd()).toBeCloseTo(0.25, 7);
+  });
+
+  it("byok spend history is local and not transmitted", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(streamingResponse(SUCCESS_EVENTS));
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
+
+    await sendByokLlmRequest({
+      purpose: "ikigai-pass-1",
+      category: "worker",
+      messages: [{ role: "user", content: "private prompt text" }],
+    });
+
+    // Only the provider origin was contacted.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://openrouter.ai/api/v1/chat/completions");
+
+    // The spend record is stored locally and carries no prompt or response content.
+    const stored = window.localStorage.getItem(BYOK_SPEND_STORAGE_KEY) ?? "";
+    expect(stored).not.toContain("private prompt text");
+    expect(stored).not.toContain("answer");
+    const parsed = JSON.parse(stored) as Array<Record<string, unknown>>;
+    expect(parsed[0]).not.toHaveProperty("messages");
+    expect(parsed[0]).not.toHaveProperty("content");
+  });
+
+  it("byok spend is attributed per feature", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamingResponse(SUCCESS_EVENTS)));
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
+
+    await sendByokLlmRequest({
+      purpose: "ikigai-pass-2",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+    });
+
+    expect(readByokSpendHistory()[0].purpose).toBe("ikigai-pass-2");
   });
 
   it("byok request boundary returns content and usage", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [{ message: { content: "usable answer" } }],
-          usage: { total_tokens: 9, cost: 0.02 },
-        }),
-        { status: 200 }
-      )
+      streamingResponse([
+        '{"choices":[{"delta":{"content":"usable answer"}}]}',
+        '{"choices":[],"usage":{"total_tokens":9,"cost":0.02}}',
+        "[DONE]",
+      ])
     );
-    vi.stubGlobal(
-      "fetch",
-      fetchMock
-    );
+    vi.stubGlobal("fetch", fetchMock);
 
     confirmByokSetup({
       providerId: "openrouter",
@@ -178,11 +263,7 @@ describe("bring your own key llm", () => {
     expect(result).toMatchObject({
       ok: true,
       content: "usable answer",
-      usage: {
-        totalTokens: 9,
-        costUsd: 0.02,
-        costSource: "provider",
-      },
+      usage: { totalTokens: 9, costUsd: 0.02, costSource: "provider" },
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -199,6 +280,8 @@ describe("bring your own key llm", () => {
       model: "deepseek/deepseek-v4-flash",
       messages: [{ role: "user", content: "hello" }],
       response_format: { type: "json_object" },
+      stream: true,
+      stream_options: { include_usage: true },
     });
   });
 
@@ -206,13 +289,11 @@ describe("bring your own key llm", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "secret model answer" } }],
-            usage: { cost: 0.01 },
-          }),
-          { status: 200 }
-        )
+        streamingResponse([
+          '{"choices":[{"delta":{"content":"secret model answer"}}]}',
+          '{"choices":[],"usage":{"cost":0.01}}',
+          "[DONE]",
+        ])
       )
     );
 
@@ -230,16 +311,19 @@ describe("bring your own key llm", () => {
       messages: [{ role: "user", content: "private prompt text" }],
     });
 
-    const stored = window.localStorage.getItem(BYOK_STORAGE_KEY) ?? "";
-    expect(stored).not.toContain("private prompt text");
-    expect(stored).not.toContain("secret model answer");
+    const byokStored = window.localStorage.getItem(BYOK_STORAGE_KEY) ?? "";
+    const spendStored = window.localStorage.getItem(BYOK_SPEND_STORAGE_KEY) ?? "";
+    expect(byokStored).not.toContain("private prompt text");
+    expect(byokStored).not.toContain("secret model answer");
+    expect(spendStored).not.toContain("private prompt text");
+    expect(spendStored).not.toContain("secret model answer");
   });
 
   it("byok normalizes invalid key and malformed responses", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response("unauthorized", { status: 401 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [] }), { status: 200 }));
+      .mockResolvedValueOnce(streamingResponse(['{"choices":[]}']));
     vi.stubGlobal("fetch", fetchMock);
 
     confirmByokSetup({
@@ -319,11 +403,8 @@ describe("bring your own key llm", () => {
   });
 
   it("byok concurrent in-flight requests cannot overshoot ceiling", async () => {
-    let resolveFetchA!: (response: Response) => void;
-    const fetchAPromise = new Promise<Response>((resolve) => {
-      resolveFetchA = resolve;
-    });
-    const fetchMock = vi.fn().mockReturnValueOnce(fetchAPromise);
+    const pending = pendingStreamResponse();
+    const fetchMock = vi.fn().mockResolvedValueOnce(pending.response);
     vi.stubGlobal("fetch", fetchMock);
 
     confirmByokSetup({
@@ -351,15 +432,11 @@ describe("bring your own key llm", () => {
 
     expect(resultB).toEqual({ ok: false, error: "allowance_exceeded" });
 
-    resolveFetchA(
-      new Response(
-        JSON.stringify({
-          choices: [{ message: { content: "answer a" } }],
-          usage: { cost: 0.001 },
-        }),
-        { status: 200 }
-      )
-    );
+    pending.release([
+      '{"choices":[{"delta":{"content":"answer a"}}]}',
+      '{"choices":[],"usage":{"cost":0.001}}',
+      "[DONE]",
+    ]);
     const resultA = await callA;
 
     expect(resultA).toMatchObject({ ok: true });
@@ -391,15 +468,7 @@ describe("bring your own key llm", () => {
   });
 
   it("byok unset allowance skips ceiling check", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [{ message: { content: "answer" } }],
-          usage: { cost: 0.01 },
-        }),
-        { status: 200 }
-      )
-    );
+    const fetchMock = vi.fn().mockResolvedValue(streamingResponse(SUCCESS_EVENTS));
     vi.stubGlobal("fetch", fetchMock);
 
     confirmByokSetup({
@@ -422,15 +491,7 @@ describe("bring your own key llm", () => {
   });
 
   it("boundary routes by declared category", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [{ message: { content: "answer" } }],
-          usage: { cost: 0.01 },
-        }),
-        { status: 200 }
-      )
-    );
+    const fetchMock = vi.fn().mockResolvedValue(streamingResponse(SUCCESS_EVENTS));
     vi.stubGlobal("fetch", fetchMock);
 
     confirmByokSetup({
@@ -484,8 +545,6 @@ describe("bring your own key llm", () => {
         savedKey: "sk-legacy",
         hasSavedKey: true,
         allowanceUsd: null,
-        usageUsd: 0,
-        usageCostSource: "unknown",
         confirmedAt: "2026-06-01T00:00:00.000Z",
       })
     );
