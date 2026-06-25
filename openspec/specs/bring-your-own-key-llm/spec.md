@@ -5,7 +5,7 @@ TBD - created by archiving change add-bring-your-own-key-llm. Update Purpose aft
 ## Requirements
 ### Requirement: Provider setup
 
-The app SHALL provide a browser-local LLM setup flow that supports OpenRouter as the available provider, lets the visitor provide an API key, uses a configured default model for future matching calls, and shows a cost indication placeholder until provider/model-aware estimates are implemented. The setup SHALL require explicit visitor confirmation before the app treats the configuration as usable for LLM requests.
+The app SHALL provide a browser-local LLM setup flow that supports OpenRouter as the available provider, lets the visitor provide an API key, lets the visitor choose a model within the category the app's model-powered features declare, and shows a cost indication placeholder until provider/model-aware estimates are implemented. The setup SHALL require explicit visitor confirmation before the app treats the configuration as usable for LLM requests.
 
 #### Scenario: Visitor configures OpenRouter
 
@@ -34,12 +34,32 @@ The app SHALL keep pasted API keys in browser memory by default and SHALL persis
 
 ### Requirement: Local allowance tracking
 
-The app SHALL let the visitor set a local spending allowance for LLM usage and SHALL prevent provider requests once the locally tracked allowance is exhausted. Usage SHALL be updated from provider-reported usage or cost when available; when exact cost is unavailable, the app SHALL record a conservative estimate or unknown-cost state rather than presenting an exact value.
+The app SHALL let the visitor set a local spending allowance for LLM usage and SHALL prevent provider requests once the locally tracked allowance is exhausted. Before sending a request, the app SHALL estimate the request's token cost and SHALL refuse the request with an allowance-exceeded error when the estimated cost plus any in-flight reservations plus already-accumulated usage would exceed the allowance, so concurrent or multi-step calls cannot blow past the ceiling before spend catches up. When the visitor has not set an allowance, the app SHALL NOT enforce a ceiling. Usage SHALL be updated from provider-reported usage or cost when available; when exact cost is unavailable, the app SHALL record a conservative estimate or unknown-cost state rather than presenting an exact value. The pre-flight estimate is a best-effort guard only and SHALL NOT be presented to the visitor as the cost of the request; displayed cost comes from provider-reported real usage.
 
 #### Scenario: Allowance blocks new request
 
 - **WHEN** the locally tracked allowance is exhausted
 - **THEN** the LLM client refuses a new provider request and returns an allowance-exceeded error
+
+#### Scenario: Pre-flight estimate blocks an over-budget request before fetch
+
+- **WHEN** a request's estimated cost plus accumulated usage exceeds the allowance
+- **THEN** the LLM client refuses the request with an allowance-exceeded error before any provider fetch occurs
+
+#### Scenario: Concurrent in-flight requests cannot overshoot the ceiling
+
+- **WHEN** two requests are issued concurrently and each estimated cost alone fits under the remaining allowance but both combined would exceed it
+- **THEN** the first request is sent and the second is refused with an allowance-exceeded error before its fetch occurs
+
+#### Scenario: Failed request releases its in-flight reservation
+
+- **WHEN** a request fails after its estimate was reserved for the in-flight check
+- **THEN** the reserved estimate is released back so a failed request does not permanently consume the allowance
+
+#### Scenario: Unset allowance skips the ceiling check
+
+- **WHEN** the visitor has not set a local spending allowance
+- **THEN** the LLM client does not refuse requests on budget grounds and does not perform a pre-flight ceiling check
 
 #### Scenario: Provider usage updates local state
 
@@ -80,4 +100,54 @@ The browser-local LLM access capability SHALL conform to the BYOM constitution p
 #### Scenario: Conformance is recorded against a pinned constitution
 - **WHEN** the BYOK capability's conformance is reviewed
 - **THEN** `BYOM-INTEGRATION.md` names the pinned constitution version and records the capability's current deviations from the constitution's security invariants
+
+### Requirement: Model category selection
+
+The app SHALL NOT hardcode a single model for the BYOK layer. Each model in the provider registry SHALL be tagged with a category (`frontier` or `worker`). The app SHALL store the visitor's chosen model per category, SHALL surface the model options for each category the app's features declare, and SHALL let the visitor pick a concrete model within that category. The LLM request boundary SHALL accept a category declaration from the calling feature and SHALL route the request to the visitor's chosen model for that category. The boundary SHALL refuse a request whose declared category has no chosen model with a `missing_config` error, without sending the request to the provider.
+
+#### Scenario: Visitor chooses within a category
+
+- **WHEN** the setup flow is shown and the app's model-powered features declare the `worker` category
+- **THEN** the flow surfaces the worker-tagged models from the provider registry and lets the visitor pick one
+
+#### Scenario: Boundary routes by declared category
+
+- **WHEN** a calling feature sends a request declaring the `worker` category through the request boundary
+- **THEN** the boundary routes the request to the visitor's chosen worker model
+
+#### Scenario: Unconfigured category is refused before the provider call
+
+- **WHEN** a calling feature sends a request declaring a category the visitor has not chosen a model for
+- **THEN** the boundary returns a `missing_config` error and does not call the provider
+
+#### Scenario: Legacy saved model migrates to the worker category
+
+- **WHEN** a visitor returns with a saved configuration that predates category-aware storage
+- **THEN** the stored model is treated as the visitor's `worker` choice and remains usable without re-entry
+
+### Requirement: Strict Content-Security-Policy
+The app SHALL enforce a Content-Security-Policy in every built page, emitted as a `<meta http-equiv="content-security-policy">` tag in the document head via the framework's CSP configuration. The policy SHALL use `default-src 'self'` and `object-src 'none'`, SHALL NOT include `'unsafe-inline'` or `'unsafe-eval'` in `script-src`, and SHALL NOT include wildcard `*` origins in `script-src` or `connect-src`. Bundled inline scripts SHALL be permitted by content hashes generated by the build, not by `'unsafe-inline'`.
+
+#### Scenario: Build output carries a Content-Security-Policy
+- **WHEN** a production page is built
+- **THEN** the rendered HTML head contains a `content-security-policy` meta tag whose `default-src` is `'self'` and whose `object-src` is `'none'`
+
+#### Scenario: connect-src is limited to provider and map origins
+- **WHEN** the policy's `connect-src` directive is inspected
+- **THEN** it allows only `'self'`, `https://openrouter.ai`, `https://api.mapbox.com`, and `https://*.mapbox.com`, with no wildcard `*` and no other third-party origins
+
+#### Scenario: Inline scripts are hash-locked
+- **WHEN** the policy's `script-src` directive is inspected
+- **THEN** it permits bundled inline scripts via per-script hashes and does not contain `'unsafe-inline'` or `'unsafe-eval'`
+
+### Requirement: Stale key cleared on auth failure
+The LLM request boundary SHALL treat a provider auth failure (`invalid_key`, HTTP 401 or 403) as a stale credential. On such a failure it SHALL clear the in-memory session key and any persisted saved key before returning the error, SHALL emit the BYOK configuration-changed event, and SHALL NOT retry the failed request. Surfacing the re-connect state SHALL be localized and SHALL NOT leak the key or prompt content.
+
+#### Scenario: Auth failure clears the key without retry
+- **WHEN** the provider rejects a request with an auth failure
+- **THEN** the request boundary performs exactly one provider fetch, clears the in-memory and persisted key, and returns an `invalid_key` error
+
+#### Scenario: Cleared key surfaces a re-connect prompt
+- **WHEN** a model-powered flow receives an `invalid_key` result after the key was cleared
+- **THEN** the flow surfaces a localized re-connect state and the setup surface no longer offers the cleared saved key for reuse
 

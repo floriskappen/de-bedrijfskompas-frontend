@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  BYOK_CHANGED_EVENT,
   BYOK_PROVIDERS,
   confirmByokSetup,
   confirmSavedByokKey,
-  getByokModel,
+  getByokModelsForCategory,
   readByokConfig,
   type ByokErrorCode,
   type ByokProviderId,
@@ -48,6 +49,7 @@ export default function ByokSetupDialog({
   const [saveKey, setSaveKey] = useState(false);
   const [useNewKey, setUseNewKey] = useState(false);
   const [allowanceInput, setAllowanceInput] = useState("");
+  const [workerModelId, setWorkerModelId] = useState("");
   const [message, setMessage] = useState<MessageKey | null>(null);
   const [error, setError] = useState<MessageKey | null>(null);
 
@@ -64,12 +66,31 @@ export default function ByokSetupDialog({
     setError(null);
   }, [open]);
 
+  // A stale key cleared mid-session (e.g. a 401 during an Ikigai run) emits the
+  // changed event; re-read so the saved-key reuse button disappears live.
+  useEffect(() => {
+    if (!open) return;
+    const onChange = () => {
+      const next = readByokConfig();
+      setConfig(next);
+      setUseNewKey(!next.hasSavedKey);
+    };
+    window.addEventListener(BYOK_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(BYOK_CHANGED_EVENT, onChange);
+  }, [open]);
+
   const provider = BYOK_PROVIDERS[providerId];
-  const model = useMemo(() => getByokModel(providerId, config.modelId), [providerId, config.modelId]);
+  const workerModels = useMemo(() => getByokModelsForCategory(providerId, "worker"), [providerId]);
+  const selectedWorkerModelId = workerModelId || workerModels[0]?.id || "";
   const canUseSavedKey = config.hasSavedKey && !useNewKey;
+  const allowanceReached =
+    config.allowanceUsd !== null && config.usageUsd >= config.allowanceUsd;
 
   const confirmWithSavedKey = () => {
-    const next = confirmSavedByokKey(parseAllowance(allowanceInput));
+    const next = confirmSavedByokKey({
+      allowanceUsd: parseAllowance(allowanceInput),
+      modelByCategory: { worker: selectedWorkerModelId },
+    });
     if (!next) {
       setError("byok_missing_key");
       return;
@@ -88,7 +109,7 @@ export default function ByokSetupDialog({
 
     const next = confirmByokSetup({
       providerId,
-      modelId: model.id,
+      modelByCategory: { worker: selectedWorkerModelId },
       apiKey,
       saveKey,
       allowanceUsd: parseAllowance(allowanceInput),
@@ -137,18 +158,32 @@ export default function ByokSetupDialog({
         <div className="pt-4">
           <div className="byok-field">
             <label htmlFor="byok-provider">{t("byok_provider", locale)}</label>
-            <select
-              id="byok-provider"
-              value={providerId}
-              onChange={(event) => setProviderId(event.currentTarget.value as ByokProviderId)}
-            >
-              <option value={provider.id}>{provider.label}</option>
-            </select>
+            <div className="byok-select">
+              <select
+                id="byok-provider"
+                value={providerId}
+                onChange={(event) => setProviderId(event.currentTarget.value as ByokProviderId)}
+              >
+                <option value={provider.id}>{provider.label}</option>
+              </select>
+            </div>
           </div>
 
           <div className="byok-field mt-3">
             <label htmlFor="byok-model">{t("byok_model", locale)}</label>
-            <input id="byok-model" value={model.label} readOnly />
+            <div className="byok-select">
+              <select
+                id="byok-model"
+                value={selectedWorkerModelId}
+                onChange={(event) => setWorkerModelId(event.currentTarget.value)}
+              >
+                {workerModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {config.hasSavedKey && !useNewKey ? (
@@ -196,7 +231,7 @@ export default function ByokSetupDialog({
             </>
           )}
 
-          <div className="byok-field mt-3">
+          <div className={`byok-field mt-3${allowanceReached ? " is-reached" : ""}`}>
             <label htmlFor="byok-allowance-input">{t("byok_allowance", locale)}</label>
             <input
               id="byok-allowance-input"
@@ -207,8 +242,15 @@ export default function ByokSetupDialog({
               placeholder={t("byok_allowance_hint", locale)}
               value={allowanceInput}
               onChange={(event) => setAllowanceInput(event.currentTarget.value)}
+              aria-describedby={allowanceReached ? "byok-allowance-reached" : undefined}
             />
           </div>
+
+          {allowanceReached && (
+            <p id="byok-allowance-reached" className="byok-allowance-note mt-2" role="status">
+              {t("byok_allowance_reached", locale)}
+            </p>
+          )}
 
           <p id="byok-cost-placeholder" className="byok-cost-note mt-4">
             {t("byok_cost_placeholder", locale)}

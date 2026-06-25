@@ -24,17 +24,7 @@ The company detail page SHALL be served statically at `/{company_id}/` for Dutch
 
 ### Requirement: Identity header
 
-The page SHALL present the company identity using the same treatment as the map peek card: a favicon thumbnail (falling back to a monogram of the first letter when no favicon is available or it fails to load), the company name, a location line, and the company's plain-text tagline.
-
-#### Scenario: Favicon available
-
-- **WHEN** the company has a `favicon_url` that loads
-- **THEN** the favicon is shown in the identity thumbnail
-
-#### Scenario: Favicon missing or fails
-
-- **WHEN** the company has no `favicon_url`, or the image fails to load
-- **THEN** a monogram of the company name's first letter is shown instead
+The page SHALL present the company identity using the same treatment as the map peek card: a square ink monogram tile showing the first letter of the company name (preserving source casing), the company name, a location line, and the company's plain-text tagline.
 
 #### Scenario: Location line
 

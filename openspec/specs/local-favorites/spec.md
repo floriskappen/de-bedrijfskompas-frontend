@@ -51,7 +51,7 @@ The map peek card and company detail top bar SHALL expose the current company fa
 
 ### Requirement: Favorites overview page
 
-The app SHALL provide a dedicated favorites overview page at `/favorieten/` for Dutch and `/en/favorites/` for English. The page SHALL render the current browser's saved companies after hydration, using the static company data for names, locality, tagline, and detail links. Each saved company SHALL be shown as a wine-themed card (the design system's warm surface token) carrying a peek-card-style identity header (favicon tile with monogram fallback, name with locality tight beneath, and a save toggle) and a compass summary of one focus meter per axis (the shared focus-level indicator, with the axis glyph), rather than a cumulative score badge or per-axis text tags.
+The app SHALL provide a dedicated favorites overview page at `/favorieten/` for Dutch and `/en/favorites/` for English. The page SHALL render the current browser's saved companies after hydration, using the static company data for names, locality, tagline, and detail links. Each saved company SHALL be shown as a wine-themed card (the design system's warm surface token) carrying a peek-card-style identity header (monogram tile, name with locality tight beneath, and a save toggle) and a compass summary of one focus meter per axis (the shared focus-level indicator, with the axis glyph), rather than a cumulative score badge or per-axis text tags.
 
 #### Scenario: Dutch favorites route
 
@@ -62,20 +62,4 @@ The app SHALL provide a dedicated favorites overview page at `/favorieten/` for 
 
 - **WHEN** a visitor opens `/en/favorites/`
 - **THEN** the page renders the favorites overview in English
-
-#### Scenario: Empty favorites page
-
-- **WHEN** the visitor has no saved companies in current data
-- **THEN** the favorites page shows a localized empty state instead of an empty list
-
-#### Scenario: Favorite list links to detail pages
-
-- **WHEN** the favorites page renders saved companies
-- **THEN** each listed company links to its localized detail page
-- **AND** the whole card is the affordance — clicking anywhere on the card (other than the save toggle) opens that detail page, like the peek card
-
-#### Scenario: Favorite card shows a focus meter per axis
-
-- **WHEN** the favorites page renders a saved company
-- **THEN** its card shows one focus meter per axis (five in total) as the compass summary, and shows no cumulative score badge or per-axis text tags
 

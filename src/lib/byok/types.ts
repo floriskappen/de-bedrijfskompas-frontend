@@ -1,5 +1,7 @@
 export type ByokProviderId = "openrouter";
 
+export type ByokModelCategory = "frontier" | "worker";
+
 export type ByokCostSource = "provider" | "estimated" | "unknown";
 
 export type ByokErrorCode =
@@ -14,6 +16,7 @@ export type ByokErrorCode =
 export interface ByokModelConfig {
   id: string;
   label: string;
+  category: ByokModelCategory;
   inputUsdPerMillionTokens: number | null;
   outputUsdPerMillionTokens: number | null;
 }
@@ -21,13 +24,12 @@ export interface ByokModelConfig {
 export interface ByokProviderConfig {
   id: ByokProviderId;
   label: string;
-  defaultModelId: string;
   models: ByokModelConfig[];
 }
 
 export interface ByokStoredConfig {
   providerId: ByokProviderId;
-  modelId: string;
+  modelByCategory: Partial<Record<ByokModelCategory, string>>;
   saveKey: boolean;
   hasSavedKey: boolean;
   allowanceUsd: number | null;
@@ -38,7 +40,7 @@ export interface ByokStoredConfig {
 
 export interface ByokSetupInput {
   providerId: ByokProviderId;
-  modelId: string;
+  modelByCategory: Partial<Record<ByokModelCategory, string>>;
   apiKey: string;
   saveKey: boolean;
   allowanceUsd: number | null;
@@ -59,6 +61,7 @@ export interface ByokChatMessage {
 
 export interface ByokRequest {
   purpose: string;
+  category: ByokModelCategory;
   messages: ByokChatMessage[];
   responseFormat?: "text" | "json";
   temperature?: number;
@@ -82,6 +85,7 @@ export type ByokResult = ByokSuccess | ByokFailure;
 export interface ByokProviderRequest extends ByokRequest {
   apiKey: string;
   modelId: string;
+  category: ByokModelCategory;
   providerId: ByokProviderId;
 }
 

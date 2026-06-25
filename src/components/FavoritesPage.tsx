@@ -21,7 +21,6 @@ function detailHref(companyId: string, locale: "nl" | "en"): string {
 }
 
 function FavoriteCard({ company, locale }: { company: Company; locale: "nl" | "en" }) {
-  const [faviconFailed, setFaviconFailed] = useState(false);
   const city = company.address?.city || t("address_fallback", locale);
   const tagline = getLocalizedField(company, locale, "tagline") || t("tagline_fallback", locale);
   const monogram = (company.name || "?").trim().charAt(0).toUpperCase();
@@ -45,27 +44,12 @@ function FavoriteCard({ company, locale }: { company: Company; locale: "nl" | "e
         </svg>
       </button>
 
-      {/* identity — mirrors the peek card / detail page: favicon, then name with
+      {/* identity — monogram, then name with
           locality tight beneath it in the same text column */}
       <div className="flex items-center gap-3 pr-9">
-        {company.favicon_url && !faviconFailed ? (
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center border border-border-quiet bg-[var(--wash-wine)]">
-            <img
-              src={company.favicon_url}
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => setFaviconFailed(true)}
-            />
-          </div>
-        ) : (
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
-            {monogram}
-          </div>
-        )}
+        <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
+          {monogram}
+        </div>
         <div className="min-w-0 flex-1">
           <a
             href={detailHref(company.company_id, locale)}

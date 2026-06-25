@@ -1,6 +1,8 @@
+import { estimateByokRequestCost, isByokRequestWithinBudget, releaseByokEstimate, reserveByokEstimate } from "./budget";
 import { openRouterAdapter } from "./openrouter";
-import { getByokProvider } from "./providers";
+import { getByokModel, getByokProvider } from "./providers";
 import {
+  clearByokKey,
   getSessionByokApiKey,
   isByokAllowanceExhausted,
   readByokConfig,
@@ -19,17 +21,33 @@ export async function sendByokLlmRequest(request: ByokRequest): Promise<ByokResu
   if (!apiKey) return { ok: false, error: "missing_config" };
   if (isByokAllowanceExhausted(config)) return { ok: false, error: "allowance_exceeded" };
 
+  const modelId = config.modelByCategory[request.category];
+  if (!modelId) return { ok: false, error: "missing_config" };
+
+  const estimateUsd = estimateByokRequestCost(request, getByokModel(config.providerId, modelId));
+  if (!isByokRequestWithinBudget(config, estimateUsd)) {
+    return { ok: false, error: "allowance_exceeded" };
+  }
+
   const provider = getByokProvider(config.providerId);
   const adapter = ADAPTERS[provider.id];
-  const result = await adapter.send({
-    ...request,
-    apiKey,
-    providerId: provider.id,
-    modelId: config.modelId,
-  });
+  reserveByokEstimate(estimateUsd);
+  let result: ByokResult;
+  try {
+    result = await adapter.send({
+      ...request,
+      apiKey,
+      providerId: provider.id,
+      modelId,
+    });
+  } finally {
+    releaseByokEstimate(estimateUsd);
+  }
 
   if (result.ok) {
     updateByokUsage(result.usage.costUsd, result.usage.costSource);
+  } else if (result.error === "invalid_key") {
+    clearByokKey();
   }
 
   return result;

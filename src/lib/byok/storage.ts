@@ -1,10 +1,16 @@
-import { BYOK_PROVIDERS } from "./providers";
-import type { ByokProviderId, ByokSetupInput, ByokStoredConfig, ByokCostSource } from "./types";
+import { BYOK_PROVIDERS, getByokModelsForCategory, getDefaultByokModelForCategory } from "./providers";
+import type {
+  ByokCostSource,
+  ByokModelCategory,
+  ByokProviderId,
+  ByokSetupInput,
+  ByokStoredConfig,
+} from "./types";
 
 export const BYOK_STORAGE_KEY = "de-bedrijfskompas:byok-llm:v1";
 export const BYOK_CHANGED_EVENT = "bedrijfskompas:byok-llm-changed";
 
-type StoredPayload = Partial<ByokStoredConfig> & { savedKey?: unknown };
+type StoredPayload = Partial<ByokStoredConfig> & { modelId?: unknown; savedKey?: unknown };
 
 let sessionApiKey: string | null = null;
 
@@ -16,11 +22,27 @@ function normalizeProviderId(value: unknown): ByokProviderId {
   return value === "openrouter" ? "openrouter" : "openrouter";
 }
 
-function normalizeModelId(providerId: ByokProviderId, value: unknown): string {
-  const provider = BYOK_PROVIDERS[providerId];
-  return typeof value === "string" && provider.models.some((model) => model.id === value)
-    ? value
-    : provider.defaultModelId;
+function normalizeModelByCategory(
+  providerId: ByokProviderId,
+  payload: StoredPayload
+): Partial<Record<ByokModelCategory, string>> {
+  const workerModels = getByokModelsForCategory(providerId, "worker");
+  const frontierModels = getByokModelsForCategory(providerId, "frontier");
+  const workerDefault = workerModels[0]?.id;
+
+  const incoming = payload.modelByCategory;
+  const legacyModelId = typeof payload.modelId === "string" ? payload.modelId : undefined;
+
+  const result: Partial<Record<ByokModelCategory, string>> = {};
+
+  const workerCandidate = typeof incoming?.worker === "string" ? incoming.worker : legacyModelId;
+  result.worker = workerModels.some((model) => model.id === workerCandidate) ? workerCandidate : workerDefault;
+
+  if (typeof incoming?.frontier === "string" && frontierModels.some((model) => model.id === incoming.frontier)) {
+    result.frontier = incoming.frontier;
+  }
+
+  return result;
 }
 
 function normalizeMoney(value: unknown, fallback: number | null): number | null {
@@ -38,12 +60,12 @@ function normalizeUsageSource(value: unknown): ByokCostSource {
 function normalizeStoredConfig(value: unknown): ByokStoredConfig & { savedKey: string | null } {
   const payload = value && typeof value === "object" ? (value as StoredPayload) : {};
   const providerId = normalizeProviderId(payload.providerId);
-  const modelId = normalizeModelId(providerId, payload.modelId);
+  const modelByCategory = normalizeModelByCategory(providerId, payload);
   const savedKey = typeof payload.savedKey === "string" && payload.savedKey.trim() ? payload.savedKey : null;
 
   return {
     providerId,
-    modelId,
+    modelByCategory,
     saveKey: Boolean(payload.saveKey && savedKey),
     hasSavedKey: Boolean(savedKey),
     allowanceUsd: normalizeMoney(payload.allowanceUsd, null),
@@ -87,7 +109,7 @@ function writeStoredPayload(payload: ByokStoredConfig & { savedKey: string | nul
 function toPublicConfig(payload: ByokStoredConfig & { savedKey?: string | null }): ByokStoredConfig {
   return {
     providerId: payload.providerId,
-    modelId: payload.modelId,
+    modelByCategory: payload.modelByCategory,
     saveKey: Boolean(payload.saveKey && payload.hasSavedKey),
     hasSavedKey: Boolean(payload.hasSavedKey),
     allowanceUsd: payload.allowanceUsd,
@@ -99,9 +121,10 @@ function toPublicConfig(payload: ByokStoredConfig & { savedKey?: string | null }
 
 export function getDefaultByokConfig(): ByokStoredConfig {
   const provider = BYOK_PROVIDERS.openrouter;
+  const workerDefault = getDefaultByokModelForCategory(provider.id, "worker");
   return {
     providerId: provider.id,
-    modelId: provider.defaultModelId,
+    modelByCategory: { worker: workerDefault.id },
     saveKey: false,
     hasSavedKey: false,
     allowanceUsd: null,
@@ -134,7 +157,7 @@ export function confirmByokSetup(input: ByokSetupInput): ByokStoredConfig {
   const payload = normalizeStoredConfig({
     ...(current ?? {}),
     providerId,
-    modelId: normalizeModelId(providerId, input.modelId),
+    modelByCategory: input.modelByCategory,
     saveKey: input.saveKey,
     savedKey: input.saveKey ? apiKey : current?.savedKey ?? undefined,
     allowanceUsd: normalizeMoney(input.allowanceUsd, null),
@@ -152,13 +175,22 @@ export function confirmByokSetup(input: ByokSetupInput): ByokStoredConfig {
   return writeStoredPayload(payload);
 }
 
-export function confirmSavedByokKey(allowanceUsd?: number | null): ByokStoredConfig | null {
+export interface ConfirmSavedByokKeyOptions {
+  allowanceUsd?: number | null;
+  modelByCategory?: Partial<Record<ByokModelCategory, string>>;
+}
+
+export function confirmSavedByokKey(options?: ConfirmSavedByokKeyOptions): ByokStoredConfig | null {
   const stored = readStoredPayload();
   if (!stored?.savedKey) return null;
   sessionApiKey = stored.savedKey;
+  const modelByCategory = options?.modelByCategory
+    ? normalizeModelByCategory(stored.providerId, { modelByCategory: options.modelByCategory })
+    : stored.modelByCategory;
   return writeStoredPayload({
     ...stored,
-    allowanceUsd: allowanceUsd === undefined ? stored.allowanceUsd : normalizeMoney(allowanceUsd, null),
+    modelByCategory,
+    allowanceUsd: options?.allowanceUsd === undefined ? stored.allowanceUsd : normalizeMoney(options.allowanceUsd, null),
     confirmedAt: new Date().toISOString(),
   });
 }
@@ -176,6 +208,18 @@ export function updateByokUsage(costUsd: number | null | undefined, source: Byok
 
 export function isByokAllowanceExhausted(config: Pick<ByokStoredConfig, "allowanceUsd" | "usageUsd">): boolean {
   return config.allowanceUsd !== null && config.usageUsd >= config.allowanceUsd;
+}
+
+export function clearByokKey(): ByokStoredConfig {
+  sessionApiKey = null;
+  const stored = readStoredPayload();
+  if (!stored) return getDefaultByokConfig();
+  return writeStoredPayload({
+    ...stored,
+    savedKey: null,
+    saveKey: false,
+    hasSavedKey: false,
+  });
 }
 
 export function resetByokForTests(): void {

@@ -3,9 +3,7 @@
 ## Purpose
 
 Browser-local Ikigai matching that maps a visitor's questionnaire answers to ISCO minor codes, deterministically ranks renderable companies, and runs two BYOK LLM judging passes to surface grounded matches — without accounts, backend requests, analytics, or cookies.
-
 ## Requirements
-
 ### Requirement: BYOK-gated Ikigai flow
 The Ikigai matching capability SHALL run only in the browser and SHALL require a confirmed BYOK LLM configuration before any LLM request is sent. The flow SHALL remain usable without accounts, backend requests other than the selected provider call, analytics, or cookies.
 
@@ -135,3 +133,23 @@ The flow SHALL handle BYOK and parsing failures without losing visitor answers o
 #### Scenario: Empty deterministic pool is shown
 - **WHEN** derived ISCO candidates produce no matching companies
 - **THEN** the flow shows an empty-results state and lets the visitor revise answers or rerun ISCO derivation
+
+### Requirement: Model category declaration
+
+Each Ikigai LLM pass SHALL declare its model category (`frontier` or `worker`) through the BYOK request boundary. The ISCO minor-code derivation, pass-1 candidate selection, and pass-2 grounded matching passes SHALL all declare `worker`, because the passes perform structured extraction, ranking, and data-grounded synthesis over supplied company profiles rather than deep world-knowledge reasoning.
+
+#### Scenario: ISCO derivation declares worker
+
+- **WHEN** the Ikigai flow sends the ISCO minor-code derivation request through the BYOK boundary
+- **THEN** the request declares the `worker` category
+
+#### Scenario: Pass 1 declares worker
+
+- **WHEN** the Ikigai flow sends the pass-1 candidate selection request through the BYOK boundary
+- **THEN** the request declares the `worker` category
+
+#### Scenario: Pass 2 declares worker
+
+- **WHEN** the Ikigai flow sends the pass-2 grounded matching request through the BYOK boundary
+- **THEN** the request declares the `worker` category
+

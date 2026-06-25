@@ -79,6 +79,7 @@ export async function prepareIkigaiCandidates(input: PrepareIkigaiCandidatesInpu
 
   const iscoResult = await sendRequest({
     purpose: "ikigai-isco-derivation",
+    category: "worker",
     responseFormat: "json",
     temperature: 0.1,
     messages: [{ role: "user", content: buildIscoDerivationPrompt(answers, allowedCodes, input.locale) }],
@@ -106,6 +107,7 @@ export async function runIkigaiJudging(input: RunIkigaiJudgingInput): Promise<Ik
   const topPoolCompanies = topPool.map((candidate) => candidate.company);
   const pass1Result = await sendRequest({
     purpose: "ikigai-pass-1",
+    category: "worker",
     responseFormat: "json",
     temperature: 0.2,
     messages: [
@@ -133,6 +135,7 @@ export async function runIkigaiJudging(input: RunIkigaiJudgingInput): Promise<Ik
     .filter((company): company is Company => Boolean(company));
   const pass2Result = await sendRequest({
     purpose: "ikigai-pass-2",
+    category: "worker",
     responseFormat: "json",
     temperature: 0.2,
     messages: [

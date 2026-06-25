@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  BYOK_PROVIDERS,
   BYOK_STORAGE_KEY,
   clearByokSessionForTests,
   confirmByokSetup,
   confirmSavedByokKey,
   getSessionByokApiKey,
   readByokConfig,
+  readByokInFlightUsd,
+  resetByokBudgetForTests,
   resetByokForTests,
   sendByokLlmRequest,
 } from ".";
@@ -49,6 +52,7 @@ describe("bring your own key llm", () => {
 
   afterEach(() => {
     resetByokForTests();
+    resetByokBudgetForTests();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -56,7 +60,7 @@ describe("bring your own key llm", () => {
   it("byok storage keeps unsaved key session only", () => {
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-session-only",
       saveKey: false,
       allowanceUsd: null,
@@ -70,7 +74,7 @@ describe("bring your own key llm", () => {
   it("byok saved key requires confirmation without revealing secret", () => {
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-persisted",
       saveKey: true,
       allowanceUsd: 2,
@@ -93,7 +97,7 @@ describe("bring your own key llm", () => {
 
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-test",
       saveKey: false,
       allowanceUsd: 0,
@@ -101,6 +105,7 @@ describe("bring your own key llm", () => {
 
     const result = await sendByokLlmRequest({
       purpose: "test",
+      category: "worker",
       messages: [{ role: "user", content: "hello" }],
     });
 
@@ -124,7 +129,7 @@ describe("bring your own key llm", () => {
 
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-test",
       saveKey: false,
       allowanceUsd: 1,
@@ -132,6 +137,7 @@ describe("bring your own key llm", () => {
 
     await sendByokLlmRequest({
       purpose: "test",
+      category: "worker",
       messages: [{ role: "user", content: "hello" }],
     });
 
@@ -156,7 +162,7 @@ describe("bring your own key llm", () => {
 
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-test",
       saveKey: false,
       allowanceUsd: null,
@@ -164,6 +170,7 @@ describe("bring your own key llm", () => {
 
     const result = await sendByokLlmRequest({
       purpose: "test",
+      category: "worker",
       messages: [{ role: "user", content: "hello" }],
       responseFormat: "json",
     });
@@ -211,7 +218,7 @@ describe("bring your own key llm", () => {
 
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-test",
       saveKey: false,
       allowanceUsd: null,
@@ -219,6 +226,7 @@ describe("bring your own key llm", () => {
 
     await sendByokLlmRequest({
       purpose: "test",
+      category: "worker",
       messages: [{ role: "user", content: "private prompt text" }],
     });
 
@@ -236,18 +244,263 @@ describe("bring your own key llm", () => {
 
     confirmByokSetup({
       providerId: "openrouter",
-      modelId: "deepseek/deepseek-v4-flash",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
       apiKey: "sk-test",
       saveKey: false,
       allowanceUsd: null,
     });
 
     await expect(
-      sendByokLlmRequest({ purpose: "test", messages: [{ role: "user", content: "hello" }] })
+      sendByokLlmRequest({ purpose: "test", category: "worker", messages: [{ role: "user", content: "hello" }] })
     ).resolves.toEqual({ ok: false, error: "invalid_key" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getSessionByokApiKey()).toBeNull();
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
 
     await expect(
-      sendByokLlmRequest({ purpose: "test", messages: [{ role: "user", content: "hello" }] })
+      sendByokLlmRequest({ purpose: "test", category: "worker", messages: [{ role: "user", content: "hello" }] })
     ).resolves.toEqual({ ok: false, error: "malformed_response" });
+  });
+
+  it("invalid_key clears session and saved key without retry", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("unauthorized", { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-saved",
+      saveKey: true,
+      allowanceUsd: null,
+    });
+    expect(getSessionByokApiKey()).toBe("sk-saved");
+    expect(readByokConfig().hasSavedKey).toBe(true);
+
+    const result = await sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+    });
+
+    expect(result).toEqual({ ok: false, error: "invalid_key" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getSessionByokApiKey()).toBeNull();
+    expect(readByokConfig().hasSavedKey).toBe(false);
+  });
+
+  it("byok pre-flight estimate blocks over-budget request before fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: 0.005,
+    });
+
+    const result = await sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+      maxTokens: 5000,
+    });
+
+    expect(result).toEqual({ ok: false, error: "allowance_exceeded" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("byok concurrent in-flight requests cannot overshoot ceiling", async () => {
+    let resolveFetchA!: (response: Response) => void;
+    const fetchAPromise = new Promise<Response>((resolve) => {
+      resolveFetchA = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValueOnce(fetchAPromise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: 0.015,
+    });
+
+    const callA = sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+      maxTokens: 5000,
+    });
+    await Promise.resolve();
+
+    const resultB = await sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+      maxTokens: 5000,
+    });
+
+    expect(resultB).toEqual({ ok: false, error: "allowance_exceeded" });
+
+    resolveFetchA(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "answer a" } }],
+          usage: { cost: 0.001 },
+        }),
+        { status: 200 }
+      )
+    );
+    const resultA = await callA;
+
+    expect(resultA).toMatchObject({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("byok failed request releases in-flight reservation", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("unauthorized", { status: 401 })));
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
+
+    expect(readByokInFlightUsd()).toBe(0);
+
+    const result = await sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+      maxTokens: 5000,
+    });
+
+    expect(result).toEqual({ ok: false, error: "invalid_key" });
+    expect(readByokInFlightUsd()).toBe(0);
+  });
+
+  it("byok unset allowance skips ceiling check", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "answer" } }],
+          usage: { cost: 0.01 },
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
+
+    const result = await sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+      maxTokens: 50000,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("boundary routes by declared category", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "answer" } }],
+          usage: { cost: 0.01 },
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
+
+    await sendByokLlmRequest({
+      purpose: "test",
+      category: "worker",
+      messages: [{ role: "user", content: "hello" }],
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      model: "deepseek/deepseek-v4-flash",
+    });
+  });
+
+  it("unconfigured category is refused before the provider call", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    confirmByokSetup({
+      providerId: "openrouter",
+      modelByCategory: { worker: "deepseek/deepseek-v4-flash" },
+      apiKey: "sk-test",
+      saveKey: false,
+      allowanceUsd: null,
+    });
+
+    const result = await sendByokLlmRequest({
+      purpose: "test",
+      category: "frontier",
+      messages: [{ role: "user", content: "hello" }],
+    });
+
+    expect(result).toEqual({ ok: false, error: "missing_config" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("legacy saved model migrates to the worker category", () => {
+    window.localStorage.setItem(
+      BYOK_STORAGE_KEY,
+      JSON.stringify({
+        providerId: "openrouter",
+        modelId: "deepseek/deepseek-v4-flash",
+        saveKey: true,
+        savedKey: "sk-legacy",
+        hasSavedKey: true,
+        allowanceUsd: null,
+        usageUsd: 0,
+        usageCostSource: "unknown",
+        confirmedAt: "2026-06-01T00:00:00.000Z",
+      })
+    );
+
+    const config = readByokConfig();
+    expect(config.modelByCategory.worker).toBe("deepseek/deepseek-v4-flash");
+    expect(config.hasSavedKey).toBe(true);
+
+    const confirmed = confirmSavedByokKey();
+    expect(confirmed?.modelByCategory.worker).toBe("deepseek/deepseek-v4-flash");
+    expect(getSessionByokApiKey()).toBe("sk-legacy");
+  });
+
+  it("byok provider registry has no pinned default model", () => {
+    expect("defaultModelId" in BYOK_PROVIDERS.openrouter).toBe(false);
+    expect(BYOK_PROVIDERS.openrouter.models.every((m) => "category" in m)).toBe(true);
   });
 });

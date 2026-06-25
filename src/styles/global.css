@@ -441,9 +441,48 @@ em {
   outline: 0;
 }
 
+/* selects drop the native OS chevron (anti-goal 1: no framework defaults) and
+   carry a line-drawn ink caret in the app's own glyph idiom instead. */
+.byok-select {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+.byok-field select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: calc(var(--field-padding-inline) * 2.75);
+  cursor: pointer;
+}
+
+.byok-select::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 4px);
+  right: var(--field-padding-inline);
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--color-text-soft);
+  border-bottom: 1.5px solid var(--color-text-soft);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
 .byok-field input:focus,
 .byok-field select:focus {
   box-shadow: inset 0 0 0 2px var(--field-border-focus);
+}
+
+/* focus echoes the ontwerp field recipe: the gutter label and the caret take
+   the accent so the active field reads as one unit, not just a ringed box. */
+.byok-field:focus-within label {
+  color: var(--color-accent-base);
+}
+
+.byok-field:focus-within .byok-select::after {
+  border-color: var(--color-accent-base);
 }
 
 .byok-checkbox {
@@ -486,6 +525,27 @@ em {
 .byok-status.is-error {
   color: var(--color-text-default);
   border-style: dashed;
+}
+
+/* a reached ceiling marks its own field with the accent rule so the fix — the
+   amount input — is where the eye lands when retry re-gates the visitor here. */
+.byok-field.is-reached {
+  border-color: var(--color-border-accent);
+}
+
+.byok-field.is-reached label {
+  color: var(--color-accent-base);
+}
+
+.byok-allowance-note {
+  border: 1px dashed var(--color-border-accent);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-card-surface);
+  background-size: 600px 600px, auto;
+  color: var(--color-text-default);
+  padding: var(--space-inset);
+  font: var(--typography-body-sm);
 }
 
 .ikigai-sheet {
@@ -1023,27 +1083,25 @@ em {
   margin-block: auto;
 }
 
-/* — error recovery card — */
-.ikigai-error-card {
-  display: grid;
-  gap: var(--space-md);
-  width: 100%;
-  max-width: 30rem;
-  margin-block: auto;
-  border: 1px dashed var(--color-border-accent);
-  background:
-    url("/paper-grain-soft.svg"),
-    var(--color-surface-page);
-  background-size: 600px 600px, auto;
-  color: var(--color-text-default);
-  padding: var(--space-inset);
-  font: var(--typography-body);
+/* — error recovery, in place on the germinating surface —
+   a failed pass does not swap in a separate card: the seed head stops growing
+   and settles (growth halted = something is wrong, per nature-as-behaviour) and
+   the same surface carries the message + the fix/back actions. */
+.ikigai-loading.is-error .ikigai-gseed {
+  animation: none;
+  opacity: 0.85;
 }
 
-.ikigai-error-actions {
+.ikigai-loading.is-error .ikigai-seedhead {
+  fill: var(--color-text-quiet);
+}
+
+.ikigai-loading-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: var(--space-inline-gap);
+  margin-top: var(--space-xs);
 }
 
 @media (prefers-reduced-motion: reduce) {

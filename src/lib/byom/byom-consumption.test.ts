@@ -60,4 +60,19 @@ describe("byom constitution consumption", () => {
     expect(guidance).toContain("BYOM-INTEGRATION.md");
     expect(guidance).toContain("BYOM_STRUGGLES.md");
   });
+
+  it("built page carries a Content-Security-Policy", () => {
+    const builtPage = path.join(repoRoot, "dist", "index.html");
+    const policy = existsSync(builtPage)
+      ? read("dist/index.html").match(/<meta http-equiv="content-security-policy" content="([^"]*)"/u)?.[1] ??
+        ""
+      : read("astro.config.mjs");
+
+    expect(policy).toContain("default-src 'self'");
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+    expect(policy).not.toMatch(/script-src[^;]*'unsafe-eval'/);
+    expect(policy).not.toMatch(/script-src[^;]*\*/);
+    expect(policy).toContain("connect-src 'self' https://openrouter.ai https://api.mapbox.com https://*.mapbox.com");
+  });
 });

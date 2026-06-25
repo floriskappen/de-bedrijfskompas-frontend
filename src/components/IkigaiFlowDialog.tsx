@@ -113,9 +113,34 @@ function preparationFromIsco(
   };
 }
 
-function GerminatingSeed({ caption, sub }: { caption: string; sub: string }) {
+// The germinating seed head is both the loading state and the error state for a
+// pass: while the model works it grows; when a pass fails the growth halts in
+// place and the same surface carries the message + recovery actions, so the
+// visitor never jumps to a separate flat error card mid-flow.
+function GerminatingState({
+  caption,
+  sub,
+  error,
+  retryLabel,
+  backLabel,
+  onRetry,
+  onBack,
+}: {
+  caption: string;
+  sub: string;
+  error?: string | null;
+  retryLabel?: string;
+  backLabel?: string;
+  onRetry?: () => void;
+  onBack?: () => void;
+}) {
+  const isError = Boolean(error);
   return (
-    <div className="ikigai-loading" role="status" aria-live="polite">
+    <div
+      className={`ikigai-loading${isError ? " is-error" : ""}`}
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+    >
       <svg className="ikigai-seedhead" viewBox="-26 -26 52 52" aria-hidden="true" focusable="false">
         {GERMINATING_SEEDS.map((seed) => (
           <circle
@@ -128,40 +153,30 @@ function GerminatingSeed({ caption, sub }: { caption: string; sub: string }) {
           />
         ))}
       </svg>
-      <p className="ikigai-loading-caption">{caption}</p>
-      <p className="ikigai-loading-sub">{sub}</p>
-    </div>
-  );
-}
-
-function ErrorCard({
-  message,
-  onRetry,
-  onBack,
-  retryLabel,
-  backLabel,
-}: {
-  message: string;
-  onRetry?: () => void;
-  onBack?: () => void;
-  retryLabel: string;
-  backLabel: string;
-}) {
-  return (
-    <div className="ikigai-error-card" role="alert">
-      <p id="ikigai-error">{message}</p>
-      <div className="ikigai-error-actions">
-        {onBack && (
-          <button type="button" className="ontwerp-button" onClick={onBack}>
-            {backLabel}
-          </button>
-        )}
-        {onRetry && (
-          <button type="button" className="ontwerp-button is-accent" onClick={onRetry}>
-            {retryLabel}
-          </button>
-        )}
-      </div>
+      {isError ? (
+        <>
+          <p id="ikigai-error" className="ikigai-loading-caption">
+            {error}
+          </p>
+          <div className="ikigai-loading-actions">
+            {onBack && (
+              <button type="button" className="ontwerp-button" onClick={onBack}>
+                {backLabel}
+              </button>
+            )}
+            {onRetry && (
+              <button type="button" className="ontwerp-button is-accent" onClick={onRetry}>
+                {retryLabel}
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="ikigai-loading-caption">{caption}</p>
+          <p className="ikigai-loading-sub">{sub}</p>
+        </>
+      )}
     </div>
   );
 }
@@ -696,22 +711,21 @@ export default function IkigaiFlowDialog({ open, locale, companies, onRequestByo
           </div>
         )}
 
-        {stage === "deriving" &&
-          (error ? (
-            <ErrorCard
-              message={t(error, locale)}
-              retryLabel={t("ikigai_error_retry", locale)}
-              backLabel={t("ikigai_back", locale)}
-              onRetry={() => void derive()}
-              onBack={() => {
-                setError(null);
-                setStage("questions");
-                setQuestionStep(IKIGAI_QUESTIONS.length - 1);
-              }}
-            />
-          ) : (
-            <GerminatingSeed caption={t("ikigai_loading_derive", locale)} sub={t("ikigai_loading_patience", locale)} />
-          ))}
+        {stage === "deriving" && (
+          <GerminatingState
+            caption={t("ikigai_loading_derive", locale)}
+            sub={t("ikigai_loading_patience", locale)}
+            error={error ? t(error, locale) : null}
+            retryLabel={t("ikigai_error_retry", locale)}
+            backLabel={t("ikigai_back", locale)}
+            onRetry={() => onRequestByok(() => void derive())}
+            onBack={() => {
+              setError(null);
+              setStage("questions");
+              setQuestionStep(IKIGAI_QUESTIONS.length - 1);
+            }}
+          />
+        )}
 
         {stage === "tune" && (
           <div id="ikigai-candidate-review" className="ikigai-tune">
@@ -774,21 +788,22 @@ export default function IkigaiFlowDialog({ open, locale, companies, onRequestByo
           </div>
         )}
 
-        {stage === "judging" &&
-          (error ? (
-            <ErrorCard
-              message={t(error, locale)}
-              retryLabel={t("ikigai_error_retry", locale)}
-              backLabel={t("ikigai_back", locale)}
-              onRetry={() => void runJudging(judgeOriginRef.current === "refine" ? refinement : undefined)}
-              onBack={() => {
-                setError(null);
-                setStage(judgeOriginRef.current);
-              }}
-            />
-          ) : (
-            <GerminatingSeed caption={t("ikigai_loading_judge", locale)} sub={t("ikigai_loading_patience", locale)} />
-          ))}
+        {stage === "judging" && (
+          <GerminatingState
+            caption={t("ikigai_loading_judge", locale)}
+            sub={t("ikigai_loading_patience", locale)}
+            error={error ? t(error, locale) : null}
+            retryLabel={t("ikigai_error_retry", locale)}
+            backLabel={t("ikigai_back", locale)}
+            onRetry={() =>
+              onRequestByok(() => void runJudging(judgeOriginRef.current === "refine" ? refinement : undefined))
+            }
+            onBack={() => {
+              setError(null);
+              setStage(judgeOriginRef.current);
+            }}
+          />
+        )}
 
         {stage === "results" && resolvedRun && (
           <div id="ikigai-results" className="ikigai-results">

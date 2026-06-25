@@ -466,4 +466,41 @@ describe("ikigai core", () => {
     expect(stored).not.toContain("current name");
     expect(stored).toContain("run-1");
   });
+
+  it("ikigai runner declares worker for each llm pass", async () => {
+    const captured: string[] = [];
+    const responses: ByokResult[] = [
+      {
+        ok: true,
+        content: JSON.stringify({
+          candidates: [{ isco_code: "251", strength: "strong", reason: "software skills" }],
+        }),
+        usage: { costSource: "unknown" },
+      },
+      {
+        ok: true,
+        content: JSON.stringify({ candidate_company_ids: ["a"] }),
+        usage: { costSource: "unknown" },
+      },
+      {
+        ok: true,
+        content: JSON.stringify({ selected_matches: [{ company_id: "a", reason: "grounded fit" }] }),
+        usage: { costSource: "unknown" },
+      },
+    ];
+    const result = await runIkigaiMatching({
+      answers: completeAnswers,
+      companies: [makeCompany({ company_id: "a", capability_tags: [{ isco_code: "251", prominence: "core" }] })],
+      locale: "en",
+      sendRequest: async (request) => {
+        captured.push(request.category);
+        return responses.shift()!;
+      },
+      now: () => new Date("2026-06-09T12:00:00.000Z"),
+      idFactory: () => "run-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(captured).toEqual(["worker", "worker", "worker"]);
+  });
 });

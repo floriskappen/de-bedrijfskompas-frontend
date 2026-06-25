@@ -164,7 +164,6 @@ function AxisRow({
 
 export default function CompanyDetail({ company, locale }: CompanyDetailProps) {
   const [openId, setOpenId] = useState<AxisId | null>(AXIS_IDS[0]);
-  const [faviconFailed, setFaviconFailed] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   // Where "back" returns to. Defaults to the map (the peek-card origin); a
   // `?from=favorites` marker means the visitor came from the favorites page.
@@ -257,26 +256,11 @@ export default function CompanyDetail({ company, locale }: CompanyDetailProps) {
         </div>
       </div>
 
-      {/* identity — mirrors the peek card */}
+      {/* identity — monogram + name */}
       <div className="flex items-center gap-3">
-        {company.favicon_url && !faviconFailed ? (
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center border border-border-quiet bg-[var(--wash-wine)]">
-            <img
-              src={company.favicon_url}
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => setFaviconFailed(true)}
-            />
-          </div>
-        ) : (
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
-            {monogram}
-          </div>
-        )}
+        <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center bg-ink font-sans text-[26px] leading-none text-paper normal-case">
+          {monogram}
+        </div>
         <div className="min-w-0 flex-1">
           <h1 className="font-sans text-[26px] leading-none text-ink normal-case">{company.name}</h1>
           <p className="mt-1 font-sans text-[12px] text-ink-quiet">{city}</p>
