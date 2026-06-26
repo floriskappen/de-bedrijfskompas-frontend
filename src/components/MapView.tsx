@@ -133,6 +133,11 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isByokOpen, setIsByokOpen] = useState(false);
+  // Which surface the BYOK dialog presents: the lean onboarding popover (Ikigai
+  // gate) or the full-screen settings/connection-management view (chrome gear,
+  // cost-overlay manage). Presentation follows the entry point; inner mode still
+  // derives from key state.
+  const [byokVariant, setByokVariant] = useState<"onboarding" | "settings">("settings");
   const [isIkigaiOpen, setIsIkigaiOpen] = useState(false);
   // Held while the BYOK sheet is open on behalf of the Ikigai flow; runs once a
   // usable key is confirmed so the flow can continue into the wizard.
@@ -537,6 +542,7 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
       return;
     }
     byokContinuationRef.current = onConfirmed;
+    setByokVariant("onboarding");
     setIsByokOpen(true);
   };
 
@@ -918,28 +924,24 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
           </svg>
         </a>
         <button
-          id="ikigai-button"
+          id="byok-settings-button"
           type="button"
-          onClick={() => setIsIkigaiOpen(true)}
-          aria-label={t("ikigai_entry", locale)}
-          aria-expanded={isByokOpen || isIkigaiOpen}
-          aria-controls={isByokOpen ? "byok-setup" : "ikigai-flow"}
+          onClick={() => {
+            byokContinuationRef.current = null;
+            setByokVariant("settings");
+            setIsByokOpen(true);
+          }}
+          aria-label={t("byok_settings_entry", locale)}
+          aria-expanded={isByokOpen}
+          aria-controls={isByokOpen ? "byok-setup" : undefined}
           className="ontwerp-icon-button"
         >
-          <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
             <path
-              d="M9 2.2v3.3M9 12.5v3.3M2.2 9h3.3M12.5 9h3.3"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"
             />
-            <path
-              d="M5.5 5.5l1.9 1.9M10.6 10.6l1.9 1.9M12.5 5.5l-1.9 1.9M7.4 10.6l-1.9 1.9"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-            <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.4" />
           </svg>
         </button>
       </div>
@@ -1041,6 +1043,43 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
                   <span className="switch-knob" />
                 </span>
               </button>
+
+              {/* Ikigai is an optional, separate action a visitor can take from
+                  the filters screen — not another filter row. It's framed as an
+                  inviting CTA card (distinct warm surface, accent edge, icon, a
+                  one-line description) so it reads as "something concrete you can
+                  do", without claiming to be the default/best action. Activating
+                  it closes the filters sheet and starts the matching entry path,
+                  opening the BYOK setup when no confirmed config is available. */}
+              <div className="ikigai-filter-entry-wrap">
+                <span className="ikigai-filter-entry-eyebrow">{t("ikigai_badge", locale)}</span>
+                <button
+                  id="ikigai-filter-entry"
+                  type="button"
+                  className="ikigai-filter-entry"
+                  onClick={() => {
+                    setIsFilterOpen(false);
+                    requestByok(() => setIsIkigaiOpen(true));
+                  }}
+                >
+                  <span className="ikigai-filter-entry-icon" aria-hidden="true">
+                    <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+                      <path
+                        d="M9 2.2v3.3M9 12.5v3.3M2.2 9h3.3M12.5 9h3.3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="9" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  </span>
+                  <span className="ikigai-filter-entry-text">
+                    <span className="ikigai-filter-entry-title">{t("ikigai_filter_entry", locale)}</span>
+                    <span className="ikigai-filter-entry-sub">{t("ikigai_filter_entry_sub", locale)}</span>
+                  </span>
+                  <span className="ikigai-filter-entry-go" aria-hidden="true">→</span>
+                </button>
+              </div>
 
               <div className="mt-4">
                 {AXIS_IDS.map((axis) => {
@@ -1204,10 +1243,18 @@ export default function MapView({ companies, mapboxToken, locale }: MapViewProps
         onRequestByok={requestByok}
         onClose={() => setIsIkigaiOpen(false)}
       />
-      <ByokCostOverlay locale={locale} />
+      <ByokCostOverlay
+        locale={locale}
+        onManage={() => {
+          byokContinuationRef.current = null;
+          setByokVariant("settings");
+          setIsByokOpen(true);
+        }}
+      />
       <ByokSetupDialog
         open={isByokOpen}
         locale={locale}
+        variant={byokVariant}
         onClose={() => {
           byokContinuationRef.current = null;
           setIsByokOpen(false);

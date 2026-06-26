@@ -8,7 +8,7 @@ test.describe("byok cost transparency", () => {
     });
   });
 
-  test("setup sheet shows cumulative spend and history", async ({ page }) => {
+  test("connection management surface shows cumulative spend and history", async ({ page }) => {
     await page.addInitScript(
       ({ byokKey, spendKey }) => {
         window.localStorage.setItem(byokKey, JSON.stringify({
@@ -36,17 +36,15 @@ test.describe("byok cost transparency", () => {
 
     await page.goto("/");
 
-    // No session key on a fresh load → the Ikigai gate opens the BYOK setup sheet.
-    await page.locator("#ikigai-button").click();
+    // A saved key is present → the settings button opens the management surface,
+    // where cumulative spend + history live (moved out of the first-run sheet).
+    await page.locator("#byok-settings-button").click();
     await expect(page.locator("#byok-setup")).toBeVisible();
+    await expect(page.locator("#byok-setup")).toHaveAttribute("data-byok-mode", "manage");
 
-    // Cumulative spend (4 decimals, mono tabular figure + `usd` unit mark)
-    // derived from the local history.
     await expect(page.locator("#byok-spend")).toContainText("0.2500");
-    // Allowance progress against the persisted ceiling.
-    await expect(page.locator("#byok-spend")).toContainText("0.2500 / 1.0000 usd");
-    // The recent spend record, attributed to its feature (ikigai-pass-1 → "selectie").
-    await expect(page.locator("#byok-spend-history")).toContainText("selectie");
+    await expect(page.locator("#byok-spend")).toContainText("1.0000 usd");
+    await expect(page.locator("#byok-spend-history")).toContainText("bedrijven voorselecteren");
     await expect(page.locator("#byok-spend-history")).toContainText("0.2500");
   });
 
@@ -68,7 +66,10 @@ test.describe("byok cost transparency", () => {
 
     await page.goto("/");
 
-    await page.locator("#ikigai-button").click();
+    // Open the Ikigai flow via the filter-panel entry; with no key the gate
+    // opens the first-run setup.
+    await page.locator("#filters-button").click();
+    await page.locator("#ikigai-filter-entry").click();
     await expect(page.locator("#byok-setup")).toBeVisible();
     await page.locator("#byok-api-key-input").fill("sk-cost");
     await page.locator("#byok-save-key").check();
@@ -95,15 +96,14 @@ test.describe("byok cost transparency", () => {
     // an error — but the real cost has already been recorded.
     await expect(page.locator("#ikigai-error")).toBeVisible();
 
-    // Reload: the session key is gone, so the Ikigai gate re-opens the setup sheet.
-    // Clear the persisted Ikigai draft first so the menu auto-starts a fresh run
-    // (which requests BYOK) instead of offering to resume.
+    // Reload: the session key is gone. The saved key opens the management surface
+    // (where spend lives), showing the recorded cost.
     await page.evaluate(() => {
       window.localStorage.removeItem("de-bedrijfskompas:ikigai:v1");
       window.localStorage.removeItem("de-bedrijfskompas:ikigai-draft:v1");
     });
     await page.reload();
-    await page.locator("#ikigai-button").click();
+    await page.locator("#byok-settings-button").click();
     await expect(page.locator("#byok-setup")).toBeVisible();
     await expect(page.locator("#byok-spend")).toContainText("0.0123");
   });

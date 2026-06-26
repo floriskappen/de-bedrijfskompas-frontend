@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { BYOK_STORAGE_KEY } from "../src/lib/byok";
-import { IKIGAI_DRAFT_STORAGE_KEY, IKIGAI_STORAGE_KEY } from "../src/lib/ikigai";
 
 test.describe("byok stale-key re-connect", () => {
   test.beforeEach(({ page }) => {
@@ -23,9 +22,10 @@ test.describe("byok stale-key re-connect", () => {
 
     await page.goto("/");
 
-    // Open the Ikigai flow; with no key it opens the BYOK setup. Save the key
-    // so the saved-key reuse button is offered on a later visit.
-    await page.locator("#ikigai-button").click();
+    // Open the Ikigai flow from the filter panel; with no key the gate opens the
+    // BYOK setup. Save the key so the saved-key reuse state is offered on retry.
+    await page.locator("#filters-button").click();
+    await page.locator("#ikigai-filter-entry").click();
     await expect(page.locator("#byok-setup")).toBeVisible();
     await page.locator("#byok-api-key-input").fill("sk-reconnect");
     await page.locator("#byok-save-key").check();

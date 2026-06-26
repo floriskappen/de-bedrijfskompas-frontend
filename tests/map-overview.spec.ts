@@ -67,7 +67,8 @@ test.describe("map-overview E2E tests", () => {
 
   const openIkigaiFlowWithByok = async (page: any) => {
     await page.goto("/");
-    await page.locator("#ikigai-button").click();
+    await page.locator("#filters-button").click();
+    await page.locator("#ikigai-filter-entry").click();
     await page.locator("#byok-api-key-input").fill("sk-playwright");
     await page.locator("#byok-confirm").click();
     await expect(page.locator("#ikigai-flow")).toBeVisible();
@@ -479,34 +480,41 @@ test.describe("map-overview E2E tests", () => {
     await expect(page).not.toHaveURL(/.*filters/);
   });
 
-  test("map ikigai button opens byok setup without config", async ({ page }) => {
+  test("settings button opens byok setup without config", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem("de-bedrijfskompas:byok-llm:v1");
+    });
     await page.goto("/");
 
-    const button = page.locator("#ikigai-button");
+    const button = page.locator("#byok-settings-button");
     await expect(button).toBeVisible();
-    await expect(button).toHaveText("");
-    await expect(button).toHaveAttribute("aria-label", "vind passend werk");
+    await expect(button).toHaveAttribute("aria-label", "model-toegang");
 
     await button.click();
 
     await expect(page.locator("#byok-setup")).toBeVisible();
+    await expect(page.locator("#byok-setup")).toHaveAttribute("data-byok-mode", "onboarding");
     await expect(page.locator("#byok-setup")).toContainText("eigen llm-sleutel");
     await expect(page.locator("#byok-api-key-input")).toBeVisible();
   });
 
   test("byok setup configures openrouter and shows spend surface", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#ikigai-button").click();
+    await page.locator("#byok-settings-button").click();
 
     await expect(page.locator("#byok-provider")).toHaveValue("openrouter");
     await expect(page.locator("#byok-model")).toHaveValue("deepseek/deepseek-v4-flash");
-    await expect(page.locator("#byok-spend")).toContainText("$0.0000");
 
     await page.locator("#byok-api-key-input").fill("sk-playwright");
     await page.locator("#byok-allowance-input").fill("1.50");
     await page.locator("#byok-confirm").click();
 
-    await expect(page.locator("#ikigai-flow")).toBeVisible();
+    // Confirming via the settings sheet (no continuation) leaves a session key;
+    // reopening shows the management surface, where spend lives.
+    await page.locator("#byok-settings-button").click();
+    await expect(page.locator("#byok-setup")).toHaveAttribute("data-byok-mode", "manage");
+    await expect(page.locator("#byok-spend")).toContainText("0.0000");
+
     const stored = await page.evaluate((key) => window.localStorage.getItem(key), BYOK_STORAGE_KEY);
     expect(stored).not.toContain("sk-playwright");
   });

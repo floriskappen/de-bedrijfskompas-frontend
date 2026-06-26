@@ -182,6 +182,26 @@ export function confirmSavedByokKey(options?: ConfirmSavedByokKeyOptions): ByokS
   });
 }
 
+// Update the stored model/allowance without touching the key. Used by the
+// connection-management surface to change the model or budget of an already
+// connected configuration (saved key or session-only). Preserves `savedKey`
+// and `sessionApiKey`; never reads or writes the raw key.
+export function updateByokConfig(options: {
+  modelByCategory?: Partial<Record<ByokModelCategory, string>>;
+  allowanceUsd?: number | null;
+}): ByokStoredConfig {
+  const stored = readStoredPayload() ?? { ...getDefaultByokConfig(), savedKey: null };
+  const next: ByokStoredConfig & { savedKey: string | null } = {
+    ...stored,
+    modelByCategory: options.modelByCategory
+      ? normalizeModelByCategory(stored.providerId, { modelByCategory: options.modelByCategory })
+      : stored.modelByCategory,
+    allowanceUsd:
+      options.allowanceUsd === undefined ? stored.allowanceUsd : normalizeMoney(options.allowanceUsd, null),
+  };
+  return writeStoredPayload(next);
+}
+
 export function isByokAllowanceExhausted(config: Pick<ByokStoredConfig, "allowanceUsd">): boolean {
   return config.allowanceUsd !== null && readByokUsageUsd() >= config.allowanceUsd;
 }

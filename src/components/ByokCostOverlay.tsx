@@ -32,7 +32,7 @@ function prefersExpanded(): boolean {
   return window.matchMedia("(min-width: 768px)").matches;
 }
 
-export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
+export default function ByokCostOverlay({ locale, onManage }: { locale: "nl" | "en"; onManage?: () => void }) {
   const [entries, setEntries] = useState<CostEntry[]>([]);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(prefersExpanded);
@@ -42,6 +42,10 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
   // applies the per-viewport expand default once when the overlay appears, so a
   // manual collapse/expand survives the rest of a burst.
   const shownRef = useRef(false);
+  // the positioned wrapper holding BOTH the dither shadow and the card — the
+  // drag transform/opacity ride here, not on the card, so the stippled shadow
+  // travels with the card instead of detaching from it.
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   // set true once a drag passes the tap threshold, so a swipe doesn't also fire
   // the tap action (expand) when it ends short of dismissal.
@@ -139,6 +143,13 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
   // works on both the pill and the panel. Disabled while busy: you can't dismiss
   // unfinished work. The header controls (`.byok-cost-overlay-control`) opt out
   // of dragging so their taps stay clean.
+  const resetDragStyles = () => {
+    const root = rootRef.current;
+    if (!root) return;
+    root.style.transform = "";
+    root.style.opacity = "";
+  };
+
   const onDragStart = (event: React.PointerEvent<HTMLElement>) => {
     movedRef.current = false;
     if (busy) return;
@@ -148,13 +159,13 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
   };
 
   const onDragMove = (event: React.PointerEvent<HTMLElement>) => {
-    if (!dragRef.current) return;
+    if (!dragRef.current || !rootRef.current) return;
     const dx = Math.max(0, event.clientX - dragRef.current.x);
     const dy = Math.min(0, event.clientY - dragRef.current.y);
     if (dx > 6 || dy < -6) movedRef.current = true;
-    const el = event.currentTarget;
-    el.style.transform = `translate(${dx}px, ${dy}px)`;
-    el.style.opacity = String(Math.max(0.25, 1 - (dx - dy) / 200));
+    const root = rootRef.current;
+    root.style.transform = `translate(${dx}px, ${dy}px)`;
+    root.style.opacity = String(Math.max(0.25, 1 - (dx - dy) / 200));
   };
 
   const onDragEnd = (event: React.PointerEvent<HTMLElement>) => {
@@ -166,9 +177,15 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
       dismiss();
       return;
     }
-    const el = event.currentTarget;
-    el.style.transform = "";
-    el.style.opacity = "";
+    resetDragStyles();
+  };
+
+  // a cancelled pointer (OS gesture, focus loss) would otherwise strand the
+  // drag transform/opacity on the root — snap it back.
+  const onDragCancel = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    resetDragStyles();
   };
 
   const dither = <span className="byok-cost-overlay-dither" aria-hidden="true" />;
@@ -177,7 +194,7 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
   //    dismiss once done (same as the panel) ──
   if (!expanded) {
     return createPortal(
-      <div className="byok-cost-overlay-root">
+      <div className="byok-cost-overlay-root" ref={rootRef}>
         {dither}
         <div
           id="byok-cost-overlay"
@@ -186,6 +203,7 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
           onPointerDown={onDragStart}
           onPointerMove={onDragMove}
           onPointerUp={onDragEnd}
+          onPointerCancel={onDragCancel}
         >
           <button
             type="button"
@@ -205,6 +223,18 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
             {busy && <span className="byok-cost-overlay-dot" aria-hidden="true" />}
             {totalFigure}
           </button>
+          {onManage && (
+            <button
+              type="button"
+              className="byok-cost-overlay-control"
+              aria-label={t("byok_settings_entry", locale)}
+              onClick={onManage}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" clipRule="evenodd" d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z" />
+              </svg>
+            </button>
+          )}
           {!busy && (
             <button
               type="button"
@@ -223,7 +253,7 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
 
   // ── expanded panel: per-step breakdown + total ──
   return createPortal(
-    <div className="byok-cost-overlay-root">
+    <div className="byok-cost-overlay-root" ref={rootRef}>
       {dither}
       <aside
         id="byok-cost-overlay"
@@ -232,11 +262,25 @@ export default function ByokCostOverlay({ locale }: { locale: "nl" | "en" }) {
         onPointerDown={onDragStart}
         onPointerMove={onDragMove}
         onPointerUp={onDragEnd}
+        onPointerCancel={onDragCancel}
       >
         <div className="byok-cost-overlay-head">
-          <span className="byok-cost-overlay-title">{t("byok_cost_label", locale)}</span>
-          <div className="byok-cost-overlay-actions">
+        <span className="byok-cost-overlay-title">{t("byok_cost_label", locale)}</span>
+        <div className="byok-cost-overlay-actions">
+          {onManage && (
             <button
+              type="button"
+              id="byok-cost-manage"
+              className="ontwerp-icon-button is-compact"
+              aria-label={t("byok_settings_entry", locale)}
+              onClick={onManage}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" clipRule="evenodd" d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z" />
+              </svg>
+            </button>
+          )}
+          <button
               type="button"
               className="byok-cost-overlay-control"
               aria-label={t("byok_cost_collapse", locale)}

@@ -407,6 +407,50 @@ em {
   box-shadow: 0 -12px 0 rgb(31 27 22 / 0.06);
 }
 
+/* — settings as a full-screen in-app surface (gear / cost-overlay manage).
+   Deliberately not a route: a page load would drop the in-memory session key
+   (BYOM invariant 1). Onboarding stays the bottom sheet; this is the persistent
+   connection-management surface, centred over the paper field. */
+.byok-settings-fullscreen {
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-surface);
+  background-size: 600px 600px, auto;
+  animation: filter-backdrop-in 160ms steps(4, end) both;
+}
+
+/* mobile-first: the settings view is full-bleed over the field. */
+.byok-settings-view {
+  width: 100%;
+}
+
+/* from the small breakpoint up it becomes a centred, framed card floating on the
+   paper field, rather than a lone column stretched edge-to-edge on a wide screen. */
+@media (min-width: 640px) {
+  .byok-settings-fullscreen {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl) var(--space-md);
+  }
+  .byok-settings-view {
+    flex: 0 1 auto;
+    width: min(30rem, 100%);
+    max-height: 100%;
+    border: 1px solid var(--color-border-strong);
+    background:
+      url("/paper-grain-soft.svg"),
+      var(--color-surface-page);
+    background-size: 600px 600px, auto;
+    box-shadow: 0 16px 48px -32px rgba(31, 27, 22, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .byok-settings-fullscreen {
+    animation: none;
+  }
+}
+
 .byok-sheet {
   animation: filter-sheet-in var(--motion-duration-bloom) steps(4, end) both;
 }
@@ -689,6 +733,263 @@ em {
   opacity: 0.7;
 }
 
+/* — onboarding walkthrough (first-time key holder; `03` must-cover 1, 2, 6) — */
+.byok-onboarding {
+  border: 1px solid var(--color-border-quiet);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-card-surface);
+  background-size: 600px 600px, auto;
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* the toggle reads as the visitor's own question ("what's an api key?") with a
+   chevron that rotates open — the same disclosure idiom as the company-detail
+   axis rows, so the gesture is familiar. */
+.byok-onboarding-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font: var(--typography-label);
+  text-transform: lowercase;
+  color: var(--color-text-soft);
+  cursor: pointer;
+}
+
+.byok-onboarding-chevron {
+  flex: none;
+  color: var(--color-text-quiet);
+  transition: transform 190ms steps(3, end);
+}
+
+/* stepped grid-rows expand, mirroring .axis-panel on the detail page */
+.byok-onboarding-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 190ms steps(3, end);
+}
+
+.byok-onboarding-panel.is-open {
+  grid-template-rows: 1fr;
+}
+
+.byok-onboarding-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 190ms steps(3, end);
+}
+
+.byok-onboarding-panel.is-open .byok-onboarding-panel-inner {
+  opacity: 1;
+}
+
+.byok-onboarding-body {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-quiet);
+  font: var(--typography-body-sm);
+  color: var(--color-text-soft);
+}
+
+.byok-onboarding-lead {
+  color: var(--color-text-default);
+}
+
+/* three numbered steps — a framed ordinal box, an eyebrow label, and one plain
+   line each, so the explainer scans instead of reading as a paragraph wall. */
+.byok-onboarding-steps {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: byok-step;
+}
+
+.byok-onboarding-steps > li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-sm);
+  align-items: center;
+  counter-increment: byok-step;
+}
+
+.byok-onboarding-steps > li::before {
+  content: counter(byok-step);
+  grid-row: span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--color-border-default);
+  font: var(--badge-typography);
+  color: var(--color-text-quiet);
+}
+
+.byok-onboarding-step-label {
+  align-self: end;
+  font: var(--badge-typography);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-quiet);
+}
+
+.byok-onboarding-steps > li p {
+  align-self: start;
+  margin: 0;
+  color: var(--color-text-soft);
+}
+
+.byok-onboarding-body a {
+  color: var(--color-accent-base);
+  text-underline-offset: 2px;
+}
+
+.byok-onboarding-body a:hover {
+  text-decoration: underline;
+}
+
+.byok-threat-model {
+  font: var(--typography-body-sm);
+  color: var(--color-text-quiet);
+}
+
+/* — key state (manage mode): a framed status block — a live/saved dot + label on
+   one line, the key actions in an aligned row below, so the notice reads as one
+   tidy group instead of a badge and buttons wrapping into each other. */
+.byok-key-state {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-quiet);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--filter-card-surface);
+  background-size: 600px 600px, auto;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.byok-key-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font: var(--typography-label);
+  text-transform: lowercase;
+  letter-spacing: 0.01em;
+  color: var(--color-text-default);
+}
+
+.byok-key-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-quiet);
+}
+
+.byok-key-dot.is-live {
+  background: var(--color-accent-base);
+}
+
+.byok-key-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.byok-key-actions .ontwerp-button {
+  flex: 1 1 8rem;
+}
+
+/* — Ikigai entry: a distinct, optional CTA in the filter panel — deliberately
+   NOT another filter row. A warm-surfaced card with an accent left edge, a
+   framed icon, and a title + one-line description, set off from the favorites
+   switch above and the axis controls below by its own eyebrow + a hairline, so
+   it reads as a separate, concrete thing to do — inviting, but not the default
+   action (it carries no solid accent fill). */
+.ikigai-filter-entry-wrap {
+  display: grid;
+  gap: var(--space-xs);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border-quiet);
+}
+
+.ikigai-filter-entry-eyebrow {
+  font: var(--badge-typography);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-quiet);
+}
+
+.ikigai-filter-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-md);
+  text-align: left;
+  color: var(--color-text-default);
+  background:
+    url("/paper-grain-soft.svg"),
+    var(--color-surface-warm);
+  background-size: 600px 600px, auto;
+  border: 1px solid var(--color-border-strong);
+  border-left-width: 3px;
+  border-left-color: var(--color-accent-base);
+  cursor: pointer;
+}
+
+.ikigai-filter-entry:active {
+  transform: translateY(1px);
+}
+
+.ikigai-filter-entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-page);
+  color: var(--color-accent-base);
+}
+
+.ikigai-filter-entry-text {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ikigai-filter-entry-title {
+  font: var(--typography-body);
+  line-height: 1.1;
+  color: var(--color-text-default);
+}
+
+.ikigai-filter-entry-sub {
+  font: var(--typography-body-sm);
+  line-height: 1.25;
+  color: var(--color-text-quiet);
+}
+
+.ikigai-filter-entry-go {
+  flex: none;
+  font: var(--typography-body);
+  color: var(--color-accent-base);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .byok-vessel-fill {
     transition: none;
@@ -700,9 +1001,10 @@ em {
 }
 
 /* app-level cost overlay — lives apart from any feature screen, riding above the
-   fullscreen flow (z 75) so it stays readable while a query runs and after it
+   fullscreen flow (z 80) so it stays readable while a query runs and after it
    settles. Top-right, tucked below the corner chrome (filters / flow close).
-   The root only positions; the dither layer and the card stack inside it. */
+   The root only positions; the dither layer and the card stack inside it, and
+   the drag transform rides the root so both move together. */
 .byok-cost-overlay-root {
   position: fixed;
   top: 4.75rem;
@@ -794,6 +1096,10 @@ em {
   cursor: grab;
 }
 
+.byok-cost-overlay.is-expanded:not(.is-busy):active {
+  cursor: grabbing;
+}
+
 .byok-cost-overlay-head {
   display: flex;
   align-items: center;
@@ -879,7 +1185,8 @@ em {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .byok-cost-overlay {
+  /* the entry animation lives on the root, not the card — disable it there */
+  .byok-cost-overlay-root {
     animation: none;
   }
   .byok-cost-overlay-dot {
@@ -2320,7 +2627,10 @@ em {
 
   .axis-panel,
   .axis-panel-inner,
-  .axis-chevron {
+  .axis-chevron,
+  .byok-onboarding-panel,
+  .byok-onboarding-panel-inner,
+  .byok-onboarding-chevron {
     transition: none;
   }
 

@@ -4,9 +4,12 @@ test.describe("byok model category chooser", () => {
   test("visitor chooses within a category", async ({ page }) => {
     await page.goto("/");
 
-    const button = page.locator("#ikigai-button");
-    await expect(button).toBeVisible();
-    await button.click();
+    // Open the Ikigai flow via the filter-panel entry; with no key the gate opens
+    // the first-run setup, which surfaces the model chooser.
+    await page.locator("#filters-button").click();
+    const entry = page.locator("#ikigai-filter-entry");
+    await expect(entry).toBeVisible();
+    await entry.click();
 
     const dialog = page.locator("#byok-setup");
     await expect(dialog).toBeVisible();

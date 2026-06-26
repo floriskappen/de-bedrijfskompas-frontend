@@ -5,7 +5,7 @@ TBD - created by archiving change add-bring-your-own-key-llm. Update Purpose aft
 ## Requirements
 ### Requirement: Provider setup
 
-The app SHALL provide a browser-local LLM setup flow that supports OpenRouter as the available provider, lets the visitor provide an API key, lets the visitor choose a model within the category the app's model-powered features declare, and surfaces the visitor's local spend and spend history alongside the key. The setup SHALL require explicit visitor confirmation before the app treats the configuration as usable for LLM requests.
+The app SHALL provide a browser-local first-run LLM setup flow that supports OpenRouter as the available provider, lets the visitor provide an API key, lets the visitor choose a model within the category the app's model-powered features declare, and SHALL require explicit visitor confirmation before the app treats the configuration as usable for LLM requests.
 
 #### Scenario: Visitor configures OpenRouter
 
@@ -173,8 +173,51 @@ The app SHALL make LLM spend legible to the visitor. Each model-powered request 
 - **AND** the visitor leaves or closes the page
 - **THEN** the app intercepts navigation with a leave warning before the abort or loss occurs
 
-#### Scenario: Setup sheet shows cumulative spend and history
+### Requirement: First-time key holder onboarding
 
-- **WHEN** the BYOK setup sheet is shown
+The first-run setup flow SHALL, before asking for an API key, explain in plain localized copy that the feature needs model inference, that the visitor brings their own key, and that they pay their provider directly for what they use. It SHALL point to where to obtain an OpenRouter key with a concrete link (`https://openrouter.ai/keys`), SHALL prompt the visitor to set a provider-side spend limit at the provider (`https://openrouter.ai/settings/credits`) as the hard cap that bounds spend beyond the app's local allowance, and SHALL restate the honest threat model: the key stays in the browser and calls the provider directly, a privacy and control win, not a cryptographic guarantee. The provider spend-limit prompt SHALL be informational copy and a link, not a blocking acknowledgment gate.
+
+#### Scenario: First-run setup explains connecting and costs
+
+- **WHEN** a visitor opens the first-run setup with no confirmed configuration
+- **THEN** the setup shows localized copy explaining that the feature needs model inference, the visitor brings their own key, and they pay the provider directly
+
+#### Scenario: First-run setup links to obtain a key
+
+- **WHEN** the first-run setup is shown
+- **THEN** it surfaces a link to `https://openrouter.ai/keys` for obtaining an OpenRouter key
+
+#### Scenario: First-run setup prompts the provider spend limit
+
+- **WHEN** the first-run setup is shown
+- **THEN** it prompts the visitor to set a provider-side spend limit with a link to `https://openrouter.ai/settings/credits`, presented as the hard cap complementing the app's local allowance, without blocking confirmation on an acknowledgment
+
+#### Scenario: First-run setup restates the honest threat model
+
+- **WHEN** the first-run setup is shown
+- **THEN** it restates that the key stays in the browser and calls the provider directly and that this is a privacy and control win, not a cryptographic guarantee
+
+### Requirement: Connection management surface
+
+The app SHALL provide a persistent, always-reachable connection-management surface for the browser-local LLM configuration, distinct from the first-run setup flow. After connecting, the visitor SHALL be able to reach it to change the model within the feature's declared category, adjust the local allowance, clear or rotate the key, and view the cumulative spend and on-device spend history. Reaching the surface SHALL NOT drop an active in-memory session — it MUST NOT require a full page navigation that would clear the unsaved session key (invariant 1: in-memory by default). Clearing the key SHALL wipe both the in-memory session key and any persisted saved key and SHALL return the surface to the first-run state. The clear and rotate controls SHALL be disabled while a paid request is in flight.
+
+#### Scenario: Connection management surface is reachable after connecting
+
+- **WHEN** a visitor with a confirmed configuration activates the connection-management entry
+- **THEN** the management surface opens and exposes model, allowance, clear/rotate key, and spend history
+
+#### Scenario: Connection management surface shows cumulative spend and history
+
+- **WHEN** the connection-management surface is shown
 - **THEN** it surfaces the cumulative spend derived from the local history, the allowance progress when an allowance is set, and the recent on-device spend records, presented in the active locale
+
+#### Scenario: Clearing the key returns to the first-run state
+
+- **WHEN** a visitor activates clear-key in the connection-management surface and no paid request is in flight
+- **THEN** the in-memory and persisted key are wiped and the surface returns to the first-run setup state
+
+#### Scenario: Clear and rotate are disabled during an in-flight paid request
+
+- **WHEN** a paid request is in flight
+- **THEN** the connection-management surface disables the clear and rotate controls
 
