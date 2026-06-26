@@ -4,7 +4,7 @@ import type { AxisId, Company } from "../lib/company-data/types";
 import { AXIS_IDS } from "../lib/company-data/types";
 import { DEFAULT_AXIS_MINIMUMS, type AxisMinimums } from "../lib/company-data/filters";
 import { FOCUS_LEVEL_ORDER, getFocusLevel, type FocusLevel } from "../lib/company-data/focus-level";
-import { getAxisLabel, getFocusMinimumLabel } from "../lib/i18n/labels";
+import { getAxisLabel, getFocusLevelLabel, getFocusMinimumLabel } from "../lib/i18n/labels";
 import { t, type MessageKey } from "../lib/i18n";
 import {
   IKIGAI_QUESTIONS,
@@ -31,6 +31,7 @@ import {
   type IkigaiRunRecord,
 } from "../lib/ikigai";
 import FocusMeter from "./FocusMeter";
+import AxisGlyph from "./AxisGlyph";
 
 interface IkigaiFlowDialogProps {
   open: boolean;
@@ -206,10 +207,19 @@ function ResultCard({
         </a>
       </div>
       <p className="mt-3">{tagline}</p>
+      {/* compass summary — one glyph + focus meter per axis, mirroring the
+          favorites card so an axis is never a bare, unlabeled bar cluster */}
       <div className="ikigai-axis-row mt-3" aria-label={t("ikigai_axis_summary", locale)}>
-        {AXIS_IDS.map((axis) => (
-          <FocusMeter key={axis} level={getFocusLevel(match.company.scores[axis].score)} label={getAxisLabel(axis, locale)} />
-        ))}
+        {AXIS_IDS.map((axis) => {
+          const level = getFocusLevel(match.company.scores[axis]?.score);
+          const meterLabel = `${getAxisLabel(axis, locale)}: ${getFocusLevelLabel(level, locale)}`;
+          return (
+            <div key={axis} className="ikigai-axis-cell" title={meterLabel}>
+              <AxisGlyph axis={axis} size={15} muted={level === "none"} />
+              <FocusMeter level={level} label={meterLabel} />
+            </div>
+          );
+        })}
       </div>
       <p className="ikigai-reason mt-3">{match.reason}</p>
     </article>
