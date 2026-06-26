@@ -46,3 +46,12 @@ The byom-consumption conformance check SHALL assert that a Content-Security-Poli
 - **WHEN** the byom-consumption conformance is reviewed against a built page
 - **THEN** the page HTML head contains a `content-security-policy` meta tag whose `default-src` is `'self'` and whose `object-src` is `'none'`
 
+### Requirement: Free and open-source license
+
+The app SHALL be free and open source: no paywall, subscription, or developer-side metering SHALL gate access, and the source SHALL be open under an OSI-approved license. A `LICENSE` file declaring GPL-3.0-or-later SHALL be present at the repository root. This backs `vendor/byom/constitution/05-integration-guide.md` conformance checklist item 1 ("App is free and open source") and `04-badge-and-registry.md` badge eligibility.
+
+#### Scenario: Repository carries an open-source license
+
+- **WHEN** the repository root is inspected
+- **THEN** a `LICENSE` file is present declaring GPL-3.0-or-later
+

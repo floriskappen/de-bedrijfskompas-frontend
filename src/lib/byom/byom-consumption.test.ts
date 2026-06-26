@@ -75,4 +75,14 @@ describe("byom constitution consumption", () => {
     expect(policy).not.toMatch(/script-src[^;]*\*/);
     expect(policy).toContain("connect-src 'self' https://openrouter.ai https://api.mapbox.com https://*.mapbox.com");
   });
+
+  it("repository carries an open-source license", () => {
+    expect(existsSync(path.join(repoRoot, "LICENSE"))).toBe(true);
+    const license = read("LICENSE");
+    expect(license).toContain("GNU GENERAL PUBLIC LICENSE");
+    expect(license).toContain("Version 3, 29 June 2007");
+
+    const pkg = JSON.parse(read("package.json"));
+    expect(pkg.license).toBe("GPL-3.0-or-later");
+  });
 });
