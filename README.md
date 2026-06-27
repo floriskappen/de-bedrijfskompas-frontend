@@ -1,6 +1,6 @@
 # de bedrijfskompas
 
-een rustige manier om bedrijven te ontdekken — geen vacaturebord, maar een lijst.
+een rustige manier om bedrijven te ontdekken
 
 ## development
 
