@@ -13,7 +13,6 @@
 - The pinned authority for the browser-local BYOK layer (`src/lib/byok/`) and any model-powered feature is `vendor/byom/`; see `BYOM-INTEGRATION.md` for the current pinned version, per-invariant conformance mapping, and deviations.
 - Before any BYOK or model-powered-feature change, read `vendor/byom/AGENTS.md` first, then `vendor/byom/constitution/02-security-invariants.md` (mandatory) and the constitution chapters relevant to the work.
 - The BYOK layer conforms to the BYOM constitution. Record closed gaps or new deviations in `BYOM-INTEGRATION.md`; do not close a gap without updating its deviation entry.
-- Log constitution-level friction (ambiguity, missing guidance, terminology clashes) in `BYOM_STRUGGLES.md` — not implementation bugs or plan-scope issues.
 - `vendor/byom/website/` is movement-facing; ignore it for implementation decisions.
 
 ## Commit Messages

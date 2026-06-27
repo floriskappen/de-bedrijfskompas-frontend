@@ -5,4 +5,4 @@
 [submodule "vendor/byom"]
 	path = vendor/byom
 	url = git@github.com:floriskappen/bring-your-own-model.git
-	branch = release/v0.1
+	branch = release/v1

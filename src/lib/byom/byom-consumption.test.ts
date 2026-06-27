@@ -12,7 +12,7 @@ describe("byom constitution consumption", () => {
     const gitmodules = read(".gitmodules");
     expect(gitmodules).toContain("path = vendor/byom");
     expect(gitmodules).toContain("url = git@github.com:floriskappen/bring-your-own-model.git");
-    expect(gitmodules).toContain("branch = release/v0.1");
+    expect(gitmodules).toContain("branch = release/v1");
 
     for (const requiredPath of [
       "vendor/byom/AGENTS.md",
@@ -23,33 +23,33 @@ describe("byom constitution consumption", () => {
       expect(existsSync(path.join(repoRoot, requiredPath))).toBe(true);
     }
 
-    expect(read("vendor/byom/VERSION").trim()).toBe("v0.1.0");
+    expect(read("vendor/byom/VERSION").trim()).toBe("v1.0.0");
     expect(
       execFileSync("git", ["-C", "vendor/byom", "rev-parse", "HEAD"], {
         cwd: repoRoot,
         encoding: "utf8",
       }).trim()
-    ).toBe("e2fc406678cfc48ec967af511e6761407a4120cc");
+    ).toBe("40562e46e8487315d39e8ec70c7513be3d329868");
     expect(
       execFileSync("git", ["-C", "vendor/byom", "describe", "--tags", "--exact-match"], {
         cwd: repoRoot,
         encoding: "utf8",
       }).trim()
-    ).toBe("v0.1.0");
+    ).toBe("v1.0.0");
   });
 
   it("byom integration document records current adoption", () => {
     const integration = read("BYOM-INTEGRATION.md");
     expect(integration).toContain("BYOM");
-    expect(integration).toContain("v0.1.0");
-    expect(integration).toContain("e2fc406");
+    expect(integration).toContain("v1.0.0");
+    expect(integration).toContain("40562e4");
     expect(integration).toContain("## Deviations");
   });
 
   it("byom integration document has a propagation log", () => {
     const integration = read("BYOM-INTEGRATION.md");
     expect(integration).toContain("Propagation log");
-    expect(integration).toContain("none -> v0.1.0");
+    expect(integration).toContain("v0.1.0 -> v1.0.0");
   });
 
   it("byok work has local constitution read path", () => {
@@ -58,7 +58,6 @@ describe("byom constitution consumption", () => {
     expect(guidance).toContain("vendor/byom/AGENTS.md");
     expect(guidance).toContain("constitution/");
     expect(guidance).toContain("BYOM-INTEGRATION.md");
-    expect(guidance).toContain("BYOM_STRUGGLES.md");
   });
 
   it("built page carries a Content-Security-Policy", () => {
