@@ -11,7 +11,7 @@ describe("byom constitution consumption", () => {
   it("byom constitution bundle is pinned", () => {
     const gitmodules = read(".gitmodules");
     expect(gitmodules).toContain("path = vendor/byom");
-    expect(gitmodules).toContain("url = git@github.com:floriskappen/bring-your-own-model.git");
+    expect(gitmodules).toContain("url = https://github.com/floriskappen/bring-your-own-model.git");
     // The submodule is pinned to a release tag's commit SHA, not a branch.
     // BYOM's per-version release/v* branches were deleted upstream; pin to tags.
     expect(gitmodules).not.toContain("branch = release/v1");

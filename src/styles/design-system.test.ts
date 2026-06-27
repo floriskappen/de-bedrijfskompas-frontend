@@ -11,7 +11,7 @@ describe("ontwerp design-system consumption", () => {
   it("design-system bundle is pinned", () => {
     const gitmodules = read(".gitmodules");
     expect(gitmodules).toContain("path = vendor/ontwerp");
-    expect(gitmodules).toContain("url = git@github.com:floriskappen/ontwerpsysteem.git");
+    expect(gitmodules).toContain("url = https://github.com/floriskappen/ontwerpsysteem.git");
     expect(gitmodules).toContain("branch = release");
 
     for (const requiredPath of [

@@ -3,12 +3,11 @@
 # template's `base = "project/"` does not apply here).
 
 [build]
-  # The git submodules in .gitmodules use SSH URLs (for local dev). Netlify
-  # has no SSH key, so rewrite github SSH → HTTPS before fetching. Only
-  # vendor/ontwerp is needed to build — src/styles/global.css @imports its
-  # Tailwind theme, design tokens, and fonts. vendor/byom is constitution/docs
-  # authority only and is not required to build.
-  command = 'git config --global url."https://github.com/".insteadOf git@github.com: && git submodule update --init vendor/ontwerp && npm run build'
+  # .gitmodules uses HTTPS URLs (both vendor repos are public), so Netlify
+  # checks out the submodules itself during clone — no SSH key needed. The
+  # build only needs vendor/ontwerp (src/styles/global.css @imports its Tailwind
+  # theme, tokens, and fonts); vendor/byom is constitution/docs authority only.
+  command = "npm run build"
   publish = "dist"
 
 [build.environment]
