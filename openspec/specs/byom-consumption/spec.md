@@ -12,14 +12,14 @@ The app SHALL consume the BYOM constitution as a git submodule at `vendor/byom`,
 
 #### Scenario: Pin uses an exact release
 - **WHEN** the constitution submodule is inspected
-- **THEN** it points to a concrete commit tagged `v1.1.0` rather than an unpinned floating working tree or branch tip
+- **THEN** it points to a concrete commit tagged `v1.2.0` rather than an unpinned floating working tree or branch tip
 
 ### Requirement: Local integration document
 The app SHALL maintain `BYOM-INTEGRATION.md` (conventionally at `docs/BYOM-INTEGRATION.md`; the repository root remains an acceptable alternative), authored by following `vendor/byom/constitution/05-integration-guide.md`. It SHALL record the pinned constitution version and commit, the app's model-powered features and their model categories, key handling and CSP posture, spend and budget UI, budget-exhaustion behavior, a per-invariant conformance mapping, current deviations with reasons, and a propagation log of constitution advances.
 
 #### Scenario: Integration document records the current pin
 - **WHEN** `docs/BYOM-INTEGRATION.md` is opened
-- **THEN** it names BYOM as the constitution, records the pinned version `v1.1.0` and the pinned submodule commit, and records the app's current deviations from the constitution
+- **THEN** it names BYOM as the constitution, records the pinned version `v1.2.0` and the pinned submodule commit, and records the app's current deviations from the constitution
 
 #### Scenario: Propagation log records advances
 - **WHEN** the app advances the constitution to a new release

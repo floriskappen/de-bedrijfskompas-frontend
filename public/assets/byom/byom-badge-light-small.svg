@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="26" viewBox="0 0 96 26" role="img" aria-label="byom badge — bring your own model">
+  <title>byom badge small (light)</title>
+  <rect x="0.5" y="0.5" width="95" height="25" fill="#E8EBF0" stroke="#1B2028" stroke-opacity="0.22"/>
+  <g transform="translate(8,5) scale(0.67)"><rect x="2" y="8" width="12" height="12" fill="#1B2028"/><rect x="10" y="4" width="12" height="12" fill="#4D6483"/><rect x="10" y="8" width="4" height="8" fill="#1B2028"/></g>
+  <text x="33" y="18" font-family="Archivo, 'Helvetica Neue', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="800" letter-spacing="-0.5" fill="#1B2028" text-rendering="geometricPrecision">byom</text>
+</svg>

@@ -108,12 +108,22 @@ const base = locale === "en" ? "/en/" : "/";
       </section>
     ))}
 
-    <!-- closing: a plain note that this is an evolving experiment -->
-    <div class="mt-10 border-t border-ink/10 pt-5">
-      {content.closing.map((p) => (
-        <p class="font-sans text-[14px] leading-relaxed text-ink-quiet">{p}</p>
-      ))}
-    </div>
+    <!-- BYOM badge (constitution 04). The badge stays canonical: a self-hosted
+         <img> so the strict CSP stays 'self'-only and it is not recoloured. The
+         honest claim travels in the canonical alt text; the link points to the
+         pattern site. -->
+    <section class="mt-10 border-t border-ink/10 pt-5">
+      <a href="https://byom.flkp.nl/" rel="noopener" class="inline-block w-fit">
+        <img
+          src="/assets/byom/byom-badge-light-small.svg"
+          alt="BYOM badge — Bring Your Own Model: follows the pattern and security invariants, not proof of safety."
+          width="96"
+          height="26"
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+    </section>
 
     <Disclaimer locale={locale} withBorder={false} />
   </article>

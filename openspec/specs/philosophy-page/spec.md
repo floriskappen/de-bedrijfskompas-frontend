@@ -3,9 +3,7 @@
 ## Purpose
 
 The philosophy / about page: a static, bilingual reading page telling the project's story in plain first-person prose — why the site starts from the company rather than the vacancy, that the five axes are subjective, why where you work matters, and that the site is static with no tracking — ending with the five-axes list, a standing disclaimer, and a directional reveal.
-
 ## Requirements
-
 ### Requirement: Routes
 
 The philosophy / about page SHALL be served statically at `/over/` for Dutch and `/en/about/` for English. The locale is determined by the route prefix.
@@ -22,15 +20,13 @@ The philosophy / about page SHALL be served statically at `/over/` for Dutch and
 
 ### Requirement: Content structure
 
-The page SHALL present, in order: a title and first-person intro explaining why the site exists; a set of explanatory sections (how companies are looked at on the five axes, that the axes are subjective and the site is made for the author first, taking time and saving favourites, why where you work matters, public-data-only, and reading silence); the list of the five axes; a tail section noting the site is static with no accounts, no server, and no tracking or analytics; and a short closing note that the project is an evolving experiment. All prose is lowercase, first-person, and sourced from the active locale.
+The page SHALL present, in order: a title and first-person intro explaining why the site exists; a set of explanatory sections (how companies are looked at on the five axes, that the axes are subjective and the site is made for the author first, taking time and saving favourites, why where you work matters, public-data-only, and reading silence); the list of the five axes; and a tail section noting the site is static with no accounts, no server, and no tracking or analytics. All prose is lowercase, first-person, and sourced from the active locale.
 
 #### Scenario: Intro and sections render
-
 - **WHEN** the philosophy page renders
-- **THEN** it shows the first-person intro followed by the explanatory sections and the closing experiment note
+- **THEN** it shows the first-person intro followed by the explanatory sections and the static-site tail section
 
 #### Scenario: Static-site note
-
 - **WHEN** the philosophy page renders
 - **THEN** it states that the site is static with no accounts, nothing sent to a server, and no tracking or analytics
 
@@ -60,3 +56,4 @@ On load the page SHALL play a directional paper-bloom reveal sweeping from top t
 
 - **WHEN** the visitor prefers reduced motion
 - **THEN** the page renders without the bloom reveal and remains fully usable
+

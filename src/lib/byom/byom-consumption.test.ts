@@ -25,33 +25,33 @@ describe("byom constitution consumption", () => {
       expect(existsSync(path.join(repoRoot, requiredPath))).toBe(true);
     }
 
-    expect(read("vendor/byom/VERSION").trim()).toBe("v1.1.0");
+    expect(read("vendor/byom/VERSION").trim()).toBe("v1.2.0");
     expect(
       execFileSync("git", ["-C", "vendor/byom", "rev-parse", "HEAD"], {
         cwd: repoRoot,
         encoding: "utf8",
       }).trim()
-    ).toBe("468b47d29b1828645d8bc4e06f8e3c85b8f8ba8e");
+    ).toBe("a531d3540cf4db9222b61e744f2ebe4a09858e01");
     expect(
       execFileSync("git", ["-C", "vendor/byom", "describe", "--tags", "--exact-match"], {
         cwd: repoRoot,
         encoding: "utf8",
       }).trim()
-    ).toBe("v1.1.0");
+    ).toBe("v1.2.0");
   });
 
   it("byom integration document records current adoption", () => {
     const integration = read("docs/BYOM-INTEGRATION.md");
     expect(integration).toContain("BYOM");
-    expect(integration).toContain("v1.1.0");
-    expect(integration).toContain("468b47d");
+    expect(integration).toContain("v1.2.0");
+    expect(integration).toContain("a531d35");
     expect(integration).toContain("## Deviations");
   });
 
   it("byom integration document has a propagation log", () => {
     const integration = read("docs/BYOM-INTEGRATION.md");
     expect(integration).toContain("Propagation log");
-    expect(integration).toContain("v1.0.0 -> v1.1.0");
+    expect(integration).toContain("v1.1.0 -> v1.2.0");
   });
 
   it("byok work has local constitution read path", () => {

@@ -83,7 +83,7 @@ export default function ByokSetupDialog({
   const [history, setHistory] = useState<ByokSpendRecord[]>(() => readByokSpendHistory());
   const [message, setMessage] = useState<MessageKey | null>(null);
   const [error, setError] = useState<MessageKey | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [sessionActive, setSessionActive] = useState(() => hasConfirmedByokConfig());
 
   const refreshSpend = () => {
@@ -109,7 +109,7 @@ export default function ByokSetupDialog({
     setMessage(null);
     setError(null);
     setSessionActive(active);
-    setShowOnboarding(!next.hasSavedKey && !active);
+    setShowOnboarding(false);
     refreshSpend();
   }, [open]);
 
@@ -520,20 +520,47 @@ export default function ByokSetupDialog({
             </p>
           )}
 
-          <div className="mt-5 flex justify-end gap-2">
-            <button type="button" className="ontwerp-button" onClick={onClose}>
-              {t("close_label", locale)}
-            </button>
-            {primaryAction && (
-              <button
-                id={primaryAction.id}
-                type="button"
-                className="ontwerp-button is-accent"
-                onClick={primaryAction.onClick}
+          {/* Action row: the BYOM link sits on the left, the close/confirm
+              buttons on the right. The bare mark is inlined (not <img>) so it
+              inherits the host ink via currentColor; the mono wordmark is
+              uppercase per the app's utility-mark convention. This is the
+              lightweight affordance, not the canonical badge. */}
+          <div className="mt-5 flex items-center justify-between gap-2">
+            <a
+              href="https://byom.flkp.nl/"
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 text-[11px] text-ink-quiet no-underline transition-colors hover:text-ink"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+                className="shrink-0"
               >
-                {t(primaryAction.label, locale)}
+                <rect x="2" y="8" width="12" height="12" fill="currentColor" opacity="0.5" />
+                <rect x="10" y="4" width="12" height="12" fill="currentColor" />
+              </svg>
+              <span className="font-mono uppercase tracking-[0.14em]">byom</span>
+            </a>
+            <div className="flex gap-2">
+              <button type="button" className="ontwerp-button" onClick={onClose}>
+                {t("close_label", locale)}
               </button>
-            )}
+              {primaryAction && (
+                <button
+                  id={primaryAction.id}
+                  type="button"
+                  className="ontwerp-button is-accent"
+                  onClick={primaryAction.onClick}
+                >
+                  {t(primaryAction.label, locale)}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>

@@ -294,8 +294,6 @@ export interface PhilosophyContent {
   axesLeadBody: string;
   // sections shown after the axes list (e.g. a note about the site itself)
   tailSections: PhilosophySection[];
-  // a short, plain note that this is an evolving experiment
-  closing: string[];
 }
 
 const PHILOSOPHY: Record<Locale, PhilosophyContent> = {
@@ -359,7 +357,6 @@ const PHILOSOPHY: Record<Locale, PhilosophyContent> = {
         ],
       },
     ],
-    closing: ["dit is een experiment. het verandert en groeit nog."],
   },
   en: {
     eyebrow: "de bedrijfskompas",
@@ -421,7 +418,6 @@ const PHILOSOPHY: Record<Locale, PhilosophyContent> = {
         ],
       },
     ],
-    closing: ["this is an experiment. it still changes and grows."],
   },
 };
 
