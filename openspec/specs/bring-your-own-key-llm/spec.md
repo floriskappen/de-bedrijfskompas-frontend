@@ -90,11 +90,11 @@ The LLM request boundary SHALL map provider and network failures into stable app
 - **THEN** the request boundary returns a malformed-response error category
 
 ### Requirement: Constitution conformance
-The browser-local LLM access capability SHALL conform to the BYOM constitution pinned at `vendor/byom`, with the capability's compliance state and any deviations recorded in `BYOM-INTEGRATION.md` at the repository root.
+The browser-local LLM access capability SHALL conform to the BYOM constitution pinned at `vendor/byom`, with the capability's compliance state and any deviations recorded in `docs/BYOM-INTEGRATION.md` (the repository root remains an acceptable alternative).
 
 #### Scenario: Conformance is recorded against a pinned constitution
 - **WHEN** the BYOK capability's conformance is reviewed
-- **THEN** `BYOM-INTEGRATION.md` names the pinned constitution version and records the capability's current deviations from the constitution's security invariants
+- **THEN** `docs/BYOM-INTEGRATION.md` names the pinned constitution version and records the capability's current deviations from the constitution's security invariants
 
 ### Requirement: Model category selection
 

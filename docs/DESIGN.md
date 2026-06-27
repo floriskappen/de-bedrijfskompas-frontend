@@ -1,10 +1,10 @@
 # Design system pin
 
 - **System:** ontwerp design system
-- **Pinned version:** 0.1.0
-- **Pinned commit:** 82efa769979484cc2a0d4c2e016d6b817edfbc0b
+- **Pinned version:** 0.1.1
+- **Pinned commit:** 2010627104916aa7e0dd7658e5d0c9c1bf89e3d2
 - **Submodule path:** vendor/ontwerp
-- **Last synced:** 2026-06-02
+- **Last synced:** 2026-06-27
 
 ## Adopted
 
@@ -66,3 +66,4 @@
 - 2026-06-25 0.1.0 ikigai error-in-loading: unified the matching flow's per-pass loading and error into one surface. A failed derive/judge pass used to swap the germinating seed head for a separate dashed error card; now the seed head halts and settles to a quiet tone in place (`.ikigai-loading.is-error`) and the same centred surface carries the message + fix/back actions (`.ikigai-loading-actions`), so the visitor recovers without a jarring jump to a flat card. Removed the now-unused `.ikigai-error-card` / `.ikigai-error-actions`. Reused the existing seed head, body type, and ink-press buttons; no new tokens.
 - 2026-06-25 0.1.0 byok model chooser + allowance-exceeded ux: gave the BYOK sheet's selects (the new worker-model chooser and the existing provider field) a proper ontwerp treatment — suppressed the native OS chevron and drew a line-glyph ink caret in the app's existing line-glyph idiom, and aligned field focus to the `.field:focus-within` recipe (accent gutter label + caret). Reworked the dead-end allowance-exceeded state: the error copy now names the fix (raise the limit in setup), and the setup sheet marks the reached ceiling on its own field with an accent rule + a dashed-accent actionable note beside the amount input, so the `allowance_exceeded` retry (which re-gates into the sheet) lands the visitor on the control that resolves it. No raw colour, radius, spacing, type, or motion values introduced; reused ink/accent/border tokens, the dashed-error idiom, and the line-glyph caret family.
 - 2026-06-09 0.1.0 ikigai matching flow rework: rebuilt the flat panel-stack into a two-surface premium experience (`.ikigai-menu-sheet` run-selection bottom sheet with a drag handle + resume card; `.ikigai-fullscreen` stepped wizard on the warm grain surface). One question per step with a phyllotaxis progress rail, `heading-lg` prompts, accent mono eyebrows naming the ikigai circles, and append-on-tap example chips. BYOK gating moved off the map button and into the start/resume actions. Adopted the previously-omitted `state.loading.germinating` seed head for the derive/judge waits (ported from the ontwerp zoo phyllotaxis, reduced-motion rest state). Runs now auto-save a resumable draft. No raw tokens added; all marks reuse ink/accent/border values, the focus-level vocabulary, ink-press, and stepped motion.
+- 2026-06-27 0.1.0 -> 0.1.1: distribution-contract release. The consumer pin-file location moved from `.design/DESIGN.md` to `docs/DESIGN.md` (the `.design/` hidden-dir pattern is superseded); moved this pin file accordingly and updated `AGENTS.md` references. No recipe, language, or value tokens changed — re-checked the adopted recipes (`material.surface.paper-grain`, `component.button.ink-press`, `motion.clock.stepped`) and the app-specific extensions; all still resolve against the same ontwerp values. Submodule bumped to tag `v0.1.1` (commit `2010627`).

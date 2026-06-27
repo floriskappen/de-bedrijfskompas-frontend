@@ -26,26 +26,26 @@ describe("ontwerp design-system consumption", () => {
       expect(existsSync(path.join(repoRoot, requiredPath))).toBe(true);
     }
 
-    expect(read("vendor/ontwerp/VERSION").trim()).toBe("0.1.0");
+    expect(read("vendor/ontwerp/VERSION").trim()).toBe("0.1.1");
     expect(
       execFileSync("git", ["-C", "vendor/ontwerp", "rev-parse", "HEAD"], {
         cwd: repoRoot,
         encoding: "utf8",
       }).trim()
-    ).toBe("82efa769979484cc2a0d4c2e016d6b817edfbc0b");
+    ).toBe("2010627104916aa7e0dd7658e5d0c9c1bf89e3d2");
     expect(
       execFileSync("git", ["-C", "vendor/ontwerp", "describe", "--tags", "--exact-match"], {
         cwd: repoRoot,
         encoding: "utf8",
       }).trim()
-    ).toBe("v0.1.0");
+    ).toBe("v0.1.1");
   });
 
   it("design pin records current adoption", () => {
-    const designPin = read(".design/DESIGN.md");
+    const designPin = read("docs/DESIGN.md");
     expect(designPin).toContain("**System:** ontwerp design system");
-    expect(designPin).toContain("**Pinned version:** 0.1.0");
-    expect(designPin).toContain("**Pinned commit:** 82efa769979484cc2a0d4c2e016d6b817edfbc0b");
+    expect(designPin).toContain("**Pinned version:** 0.1.1");
+    expect(designPin).toContain("**Pinned commit:** 2010627104916aa7e0dd7658e5d0c9c1bf89e3d2");
     expect(designPin).toContain("**Submodule path:** vendor/ontwerp");
     expect(designPin).toContain("## Adopted");
     expect(designPin).toContain("### Adapted");
@@ -58,7 +58,7 @@ describe("ontwerp design-system consumption", () => {
   it("ui work has local design read path", () => {
     const guidance = read("AGENTS.md");
     expect(guidance).toContain("vendor/ontwerp/");
-    expect(guidance).toContain(".design/DESIGN.md");
+    expect(guidance).toContain("docs/DESIGN.md");
     expect(guidance).toContain("vendor/ontwerp/AGENTS.md");
     expect(guidance).toContain("vendor/ontwerp/language/");
     expect(guidance).toContain("vendor/ontwerp/recipes/");

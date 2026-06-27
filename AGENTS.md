@@ -2,17 +2,17 @@
 
 ## Design Authority
 
-- The pinned design authority for UI work is `vendor/ontwerp/`; see `.design/DESIGN.md` for the current version, commit, adopted parts, and deviations.
+- The pinned design authority for UI work is `vendor/ontwerp/`; see `docs/DESIGN.md` for the current version, commit, adopted parts, and deviations.
 - Before any UI change, read `vendor/ontwerp/AGENTS.md` first, then the relevant files in `vendor/ontwerp/language/`, `vendor/ontwerp/recipes/`, `vendor/ontwerp/zoo/`, and `vendor/ontwerp/values/`.
-- Consume semantic and component values from `vendor/ontwerp/values/`; do not introduce new raw colour, spacing, radius, type, or motion values unless they are app-specific extensions recorded in `.design/DESIGN.md`.
-- Record adopted parts, adaptations, omissions, extensions, and pin advances in `.design/DESIGN.md`.
+- Consume semantic and component values from `vendor/ontwerp/values/`; do not introduce new raw colour, spacing, radius, type, or motion values unless they are app-specific extensions recorded in `docs/DESIGN.md`.
+- Record adopted parts, adaptations, omissions, extensions, and pin advances in `docs/DESIGN.md`.
 - Preserve this app's lowercase user-facing copy convention. Mono utility marks may be uppercase with tracking.
 
 ## BYOM Authority
 
-- The pinned authority for the browser-local BYOK layer (`src/lib/byok/`) and any model-powered feature is `vendor/byom/`; see `BYOM-INTEGRATION.md` for the current pinned version, per-invariant conformance mapping, and deviations.
+- The pinned authority for the browser-local BYOK layer (`src/lib/byok/`) and any model-powered feature is `vendor/byom/`; see `docs/BYOM-INTEGRATION.md` for the current pinned version, per-invariant conformance mapping, and deviations.
 - Before any BYOK or model-powered-feature change, read `vendor/byom/AGENTS.md` first, then `vendor/byom/constitution/02-security-invariants.md` (mandatory) and the constitution chapters relevant to the work.
-- The BYOK layer conforms to the BYOM constitution. Record closed gaps or new deviations in `BYOM-INTEGRATION.md`; do not close a gap without updating its deviation entry.
+- The BYOK layer conforms to the BYOM constitution. Record closed gaps or new deviations in `docs/BYOM-INTEGRATION.md`; do not close a gap without updating its deviation entry.
 - `vendor/byom/website/` is movement-facing; ignore it for implementation decisions.
 
 ## Commit Messages

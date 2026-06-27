@@ -1,18 +1,4 @@
-# design-system-consumption Specification
-
-## Purpose
-TBD - created by archiving change implement-ontwerpsysteem. Update Purpose after archive.
-## Requirements
-### Requirement: Pinned design-system bundle
-The app MUST consume the ontwerp design system as a git submodule at `vendor/ontwerp`, tracking the design-system `release` branch and checked out to an exact released version commit. The vendored bundle, not the upstream development repository, SHALL be the design authority available inside this app.
-
-#### Scenario: Design system is vendored as a release bundle
-- **WHEN** the repository is checked out with submodules
-- **THEN** `vendor/ontwerp/AGENTS.md`, `vendor/ontwerp/VERSION`, `vendor/ontwerp/CHANGELOG.md`, `vendor/ontwerp/values/`, `vendor/ontwerp/recipes/`, `vendor/ontwerp/language/`, and `vendor/ontwerp/zoo/` are available
-
-#### Scenario: Pin uses an exact release
-- **WHEN** the design-system submodule is inspected
-- **THEN** it points to a concrete commit for the selected release version rather than an unpinned floating working tree
+## MODIFIED Requirements
 
 ### Requirement: Local design pin file
 The app MUST maintain `docs/DESIGN.md` from the ontwerp consumer template (the `.design/DESIGN.md` hidden-dir placement is superseded). The pin file SHALL record the pinned version, pinned submodule commit, submodule path, last sync date, adopted recipes/principles, adaptations, omissions, extensions, and propagation history.
@@ -53,4 +39,3 @@ The app MUST advance ontwerp only through a deliberate pin update. A pin update 
 #### Scenario: Release update is propagated deliberately
 - **WHEN** the app advances from one ontwerp release to another
 - **THEN** the changelog slice between versions is reviewed, affected adopted recipes/language IDs are re-checked, and the pin file records the propagation
-

@@ -307,17 +307,7 @@ The map overview MUST render app-owned map chrome, score badges, clusters, filte
 #### Scenario: Deterministic map extensions are recorded
 
 - **WHEN** app-specific map UI extends beyond the shipped ontwerp recipes
-- **THEN** `.design/DESIGN.md` records the extension and names the relevant recipes or principles it follows
-
-#### Scenario: Themed surfaces stay subtle and legible
-
-- **WHEN** the ambient bloom, peek card, and filter surfaces apply the active skin
-- **THEN** they carry only a faint wash of the theme while saturated accent colour is reserved for intentional accents (CTA, active tags, cluster pigment, indicator dots), and dark themed marks such as the cluster pigment keep their numerals legible
-
-#### Scenario: Basemap is the stock Mapbox style under the bloom
-
-- **WHEN** the basemap renders
-- **THEN** the app does not recolour the Mapbox layers; the map shows the stock Mapbox "light" style and only the ambient `.map-atmosphere` bloom carries the active skin over it
+- **THEN** `docs/DESIGN.md` records the extension and names the relevant recipes or principles it follows
 
 ### Requirement: Overlay surface alignment
 
