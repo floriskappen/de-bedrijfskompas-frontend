@@ -12,9 +12,14 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # MAPBOX_PUBLIC_TOKEN MUST be set in the Netlify UI (Site settings →
+  # Environment variables) — the Astro build fails fast without it (MapPage.astro
+  # reads it at build time via import.meta.env). It is a public pk. Mapbox token
+  # (client-side by design), but GitHub push-protection blocks committing it, so
+  # it is provided through the UI, not this file.
   # GH_TOKEN is OPTIONAL. The pipeline repo
   # (floriskappen/de-bedrijfskompas-pipeline) is public, so the build fetches
   # src/data/companies.json anonymously without any secret. Set GH_TOKEN in the
   # Netlify UI (Site settings → Environment variables) only if you want the
   # higher authenticated rate limit (5000 req/hr vs 60) — e.g. for very frequent
-  # deploys. Never put a token in this file.
+  # deploys. Never put a (secret) token in this file.
