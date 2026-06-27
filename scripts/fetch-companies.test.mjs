@@ -101,19 +101,41 @@ describe("fetchCompanies", () => {
     expect(readFileSync(ws.dest, "utf8")).toBe(validJson);
   });
 
-  it("exits with FetchAuthError when no auth is available", async () => {
+  it("fetches anonymously when neither gh nor GH_TOKEN is available (public repo path)", async () => {
     const runGh = ghRunner({ authed: false });
-    await expect(
-      fetchCompanies({
-        argv: [],
-        env: {},
-        dest: ws.dest,
-        tmp: ws.tmp,
-        runGh,
-        ...silentLogs(),
-      }),
-    ).rejects.toBeInstanceOf(FetchAuthError);
-    expect(existsSync(ws.dest)).toBe(false);
+    const httpFetch = vi.fn(async (url, opts) => {
+      if (url.endsWith("/releases/latest")) {
+        expect(opts.headers.Authorization).toBeUndefined();
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            tag_name: "v2.0.0",
+            assets: [{ name: "companies.json", url: "https://api.github.com/asset/42" }],
+          }),
+        };
+      }
+      if (url === "https://api.github.com/asset/42") {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => new TextEncoder().encode(validJson).buffer,
+        };
+      }
+      throw new Error("unexpected url " + url);
+    });
+
+    const result = await fetchCompanies({
+      argv: [],
+      env: {},
+      dest: ws.dest,
+      tmp: ws.tmp,
+      runGh,
+      httpFetch,
+      ...silentLogs(),
+    });
+    expect(result.releaseTag).toBe("v2.0.0");
+    expect(readFileSync(ws.dest, "utf8")).toBe(validJson);
   });
 
   it("fails validation when the downloaded asset is empty", async () => {

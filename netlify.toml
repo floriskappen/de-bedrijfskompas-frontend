@@ -1,0 +1,21 @@
+# Netlify build configuration for de-bedrijfskompas.
+# The project lives at the repo root, so `base` is left unset (the example
+# template's `base = "project/"` does not apply here).
+
+[build]
+  # The git submodules in .gitmodules use SSH URLs (for local dev). Netlify
+  # has no SSH key, so rewrite github SSH → HTTPS before fetching. Only
+  # vendor/ontwerp is needed to build — src/styles/global.css @imports its
+  # Tailwind theme, design tokens, and fonts. vendor/byom is constitution/docs
+  # authority only and is not required to build.
+  command = 'git config --global url."https://github.com/".insteadOf git@github.com: && git submodule update --init vendor/ontwerp && npm run build'
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # GH_TOKEN is OPTIONAL. The pipeline repo
+  # (floriskappen/de-bedrijfskompas-pipeline) is public, so the build fetches
+  # src/data/companies.json anonymously without any secret. Set GH_TOKEN in the
+  # Netlify UI (Site settings → Environment variables) only if you want the
+  # higher authenticated rate limit (5000 req/hr vs 60) — e.g. for very frequent
+  # deploys. Never put a token in this file.

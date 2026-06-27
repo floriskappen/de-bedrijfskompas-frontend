@@ -64,14 +64,7 @@ export async function fetchCompanies({
   }
 
   if (!haveAuth) {
-    errorLog(
-      [
-        "[fetch-companies] no github auth available.",
-        "  • locally: run `gh auth login` (account must have read access to " + REPO + ")",
-        "  • on netlify/ci: set the GH_TOKEN env var to a personal access token with repo read access",
-      ].join("\n"),
-    );
-    throw new FetchAuthError("no github auth available");
+    log("[fetch-companies] no github auth — fetching anonymously (the pipeline repo is public)");
   }
 
   let releaseTag = "<unknown>";
@@ -140,17 +133,19 @@ function downloadWithGh({ runGh, tmp }) {
 
 async function resolveLatestWithRest({ httpFetch, token }) {
   const headers = {
-    Authorization: `Bearer ${token}`,
     "User-Agent": "de-bedrijfskompas-frontend",
     "X-GitHub-Api-Version": "2022-11-28",
   };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const releaseRes = await httpFetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
     headers: { ...headers, Accept: "application/vnd.github+json" },
   });
   if (releaseRes.status === 404) {
     throw new FetchAuthError(
-      `release lookup returned 404 — GH_TOKEN likely lacks read access to ${REPO}`,
+      `release lookup returned 404 — ${REPO} may not exist, may be private, or the token (if set) lacks read access`,
     );
   }
   if (!releaseRes.ok) {

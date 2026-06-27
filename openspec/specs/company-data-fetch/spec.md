@@ -3,9 +3,7 @@
 ## Purpose
 
 Build-time acquisition of the `companies.json` artifact from the pipeline's GitHub releases. Covers release discovery, asset download, authentication, and cache behavior.
-
 ## Requirements
-
 ### Requirement: Build-time fetch from latest pipeline release
 
 Before a production build runs, the system SHALL download the `companies.json` asset from the most recent published release of `floriskappen/de-bedrijfskompas-pipeline` and write it to `src/data/companies.json`. "Most recent" means the release returned by GitHub's "latest release" endpoint (the most recently published, non-draft, non-prerelease entry). The downloaded file MUST replace any existing file at that path.
@@ -22,7 +20,7 @@ Before a production build runs, the system SHALL download the `companies.json` a
 
 ### Requirement: Authentication sources
 
-The fetch step SHALL authenticate to GitHub using one of two sources, in this preference order: (1) the `gh` CLI if it is installed and currently authenticated for an account with read access to the pipeline repo; (2) a personal access token read from the environment variable `GH_TOKEN` (or `GITHUB_TOKEN` if `GH_TOKEN` is absent). At least one source MUST succeed; otherwise the build fails before `astro build` runs.
+The pipeline repo is public. The fetch step authenticates opportunistically, in this preference order: (1) the `gh` CLI if it is installed and authenticated for an account with read access to the pipeline repo; (2) a personal access token from `GH_TOKEN` (or `GITHUB_TOKEN` if `GH_TOKEN` is absent); (3) anonymous GitHub REST API access. A token is optional — it raises the unauthenticated rate limit (60 → 5000 req/hr) and is the recommended path for CI — but the build SHALL NOT fail for lack of one while the latest release is reachable anonymously.
 
 #### Scenario: Local developer with gh authenticated
 
@@ -32,12 +30,12 @@ The fetch step SHALL authenticate to GitHub using one of two sources, in this pr
 #### Scenario: Netlify build with GH_TOKEN
 
 - **WHEN** the build runs in an environment where `gh` is not installed but `GH_TOKEN` is set to a valid token with read access to the pipeline repo
-- **THEN** the fetch uses the token against the GitHub REST API to download the asset
+- **THEN** the fetch uses the token against the GitHub REST API (sending an `Authorization: Bearer …` header) to download the asset
 
-#### Scenario: No usable auth available
+#### Scenario: No auth available (public repo)
 
 - **WHEN** `gh` is not authenticated and neither `GH_TOKEN` nor `GITHUB_TOKEN` is set
-- **THEN** the fetch step exits non-zero with a message naming both authentication options and `astro build` does not run
+- **THEN** the fetch step downloads the asset anonymously via the GitHub REST API (no `Authorization` header) and `astro build` runs
 
 ### Requirement: Asset validation
 
